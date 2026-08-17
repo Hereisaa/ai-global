@@ -1,0 +1,22 @@
+{
+  "_readme": "Third-party capabilities expected on every machine. Not stored in this repo because their upstream is alive; reinstall from source. Reconcile with /sync-check. Types: skill = dir under ~/.claude/skills/; plugin = Claude Code plugin; command = file under ~/.claude/commands/.",
+  "items": [
+    { "name": "gsap-core", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-frameworks", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-performance", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-plugins", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-react", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-scrolltrigger", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-timeline", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "gsap-utils", "type": "skill", "source": "github:greensock/GSAP", "license": "MIT" },
+    { "name": "beautiful-article", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "0.1.0" },
+    { "name": "gpt-image-2", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.0.4" },
+    { "name": "kb-retriever", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.0.1" },
+    { "name": "web-design-engineer", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.3.0" },
+    { "name": "web-video-presentation", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.2.2" },
+    { "name": "taste-skill", "type": "skill", "source": "github:Leonxlnx/taste-skill" },
+    { "name": "ui-styling", "type": "skill", "source": "github:mrgoonie/claudekit-skills", "path": "plugins/web-dev-tools/skills/ui-styling", "version": "1.0.0" },
+    { "name": "ui-ux-pro-max", "type": "plugin", "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill", "version": "2.5.0" },
+    { "name": "web-interface-guidelines", "type": "command", "source": "github:vercel-labs/web-interface-guidelines", "target": "~/.claude/commands/web-interface-guidelines.md" }
+  ]
+}

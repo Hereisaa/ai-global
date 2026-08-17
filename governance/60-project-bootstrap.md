@@ -1,0 +1,135 @@
+# 60 — 新專案 Harness 起手式
+
+> 讀者：正要開新專案、或要把既有專案收編進制度的模型。
+> 目的：讓每個專案從第一天就具備「環境會自己說不」的反饋迴路，而不是事後補洞。
+
+## 三條公理（harness engineering 的精髓）
+
+1. **模型是無狀態的臨時工，harness 是工廠。** 每個 session 都是一個新來的、有能力但對現場一無所知的工人。你設計的不是提示詞，是「任何合格臨時工進來都能把活幹對」的產線：指令檔是入職手冊，測試與 CI 是品管站，決策日誌是圖紙。
+2. **規則的最終形態是基礎設施。** 同一條規則有三種存在形式，強度遞增：口頭 prompt（下個 session 就忘）→ 檔案制度（要靠模型記得去讀）→ 環境強制（CI/hooks/型別，忘了就被擋下）。每條規則都該問：能不能往下沉一層？「必須跑測試」寫在 CLAUDE.md 是叮嚀，做成 CI 才是制度。
+3. **Harness 投資與專案壽命成比例。** 給週末玩具上全套 CI 是浪費，給長期主力只寫兩行 README 是欠債。用下面的三級制決定投多少。
+
+## 專案三級制
+
+| 級別 | 定義 | 投資 |
+|---|---|---|
+| T1 實驗 | 壽命預估 <1 週的玩具、驗證想法 | 只做「最小包」（~5 分鐘） |
+| T2 可能長大 | 會回頭做第二次的東西 | 最小包＋CI＋決策日誌（~30 分鐘） |
+| T3 長期主力 | 有使用者、或持續開發超過一個月（如 digrit） | 全套 |
+
+**升級時機**（訊號明確，不要憑感覺）：第二次回到這個專案工作 → T1 升 T2；有了真實使用者或連續開發滿一個月 → T2 升 T3。升級動作就是補齊下一級的清單，10–30 分鐘。
+
+## T1 最小包（開 repo 當天就做，~5 分鐘）
+
+- [ ] 專案 `CLAUDE.md`（≤20 行）：一句話目的、指令速查（dev/test/typecheck）、目前已知的坑。用下方模板刪到剩骨架。
+- [ ] typecheck 與 test 指令**能跑通**（哪怕測試是 0 個）——反饋迴路的插座要先裝好，之後才插得了電器。
+- [ ] `.env.example`（有秘密就建，值留空）。
+
+## T2 追加（~30 分鐘）
+
+- [ ] **最小 CI**：push 就跑 test＋typecheck（模板見下）。專案沒 CI 時，本地驗證是唯一防線、而且靠模型自律——CI 是把自律變強制的最便宜手段。
+- [ ] **決策日誌 `docs/decisions.md`**：digrit 最有價值的資產不是程式碼，是「已鎖定決策」。從第一天就記，格式見下。
+- [ ] `AGENTS.md` router：第一行指向 CLAUDE.md，內嵌 2–3 條防斷鏈底線（commit 語言、交付方式、驗收指令）。
+- [ ] CLAUDE.md 補「驗收底線」與「慣例」節。
+
+## T3 追加（長期主力才值得）
+
+- [ ] Claude Code hooks：改檔後自動跑 typecheck／lint。設定時用 `update-config` skill 或查官方文件現行 schema，**不要憑記憶手寫 hooks JSON**（schema 會演進，寫錯會整包失效）。
+- [ ] pre-commit hook（本地擋沒過驗的 commit）。
+- [ ] 文件路由節：把「改 X 前必讀 Y」寫進 CLAUDE.md（參考 digrit/CLAUDE.md 的文件路由）。
+- [ ] 每個工作階段的收尾儀式（見下）。
+
+## 專案 CLAUDE.md 模板
+
+```markdown
+# 【專案名】專案指令
+
+【一句話：這是什麼、給誰用】。本檔是本專案慣例的單一事實來源；AGENTS.md 只是 router。
+
+## 技術棧
+【框架＋語言＋package manager；特殊結構要點名，例如「沒有 src/，程式碼在根層」】
+
+## 指令速查
+| 用途 | 指令 |
+|---|---|
+| dev | 【】 |
+| test | 【】 |
+| typecheck | 【】 |
+
+驗收底線：改程式碼後【test / typecheck】實跑全綠才算完成。【有 CI 寫「CI 綠才算」；沒 CI 寫「專案無 CI，本地驗證是唯一防線」】
+
+## 慣例（違反會被打回）
+- 【commit 格式與語言】
+- 【交付方式：分支？PR？】
+- 【測試擺放與命名】
+
+## 已鎖定決策
+見 `docs/decisions.md`。動到相關功能前先讀，不要重新發明。
+
+## 文件路由（按需讀，不要全讀）
+- 【主題】→【路徑】
+
+## 環境變數（值在 .env.local，絕不外流）
+【只列變數名與用途】
+```
+
+## 最小 CI 模板（GitHub Actions，Node 專案；其他棧同理換指令）
+
+```yaml
+name: ci
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+```
+
+## 決策日誌格式（`docs/decisions.md`）
+
+```markdown
+- [yyyy-mm-dd] 決策：一句話。
+  理由：為什麼。
+  不採用的替代：曾考慮什麼、為何放棄（防止未來的自己或模型重新提案）。
+```
+
+## 文件存放與命名規範（`docs/`，所有專案通用）
+
+> 目的：任何 agent 在任何專案新增文件時，位置與命名一致，不各自為政。專案 CLAUDE.md 可覆寫，但要寫明覆寫了什麼。範本案例：digrit 2026-07-15 docs 重整。
+
+**分類（按性質對號入座；沒有對應分類就問使用者，不要自行發明新目錄）**：
+
+| 文件性質 | 位置與檔名 |
+|---|---|
+| 設計 spec（做什麼/為什麼/資料哪來） | `docs/specs/yyyy-mm-dd-<topic>-design.md` |
+| 逐步執行計畫（TDD 步驟） | `docs/plans/yyyy-mm-dd-<topic>.md` |
+| 長青參考（API 陷阱、SOP、手冊） | `docs/reference/<topic>.md`（語意化命名、**不套日期**） |
+| 一次性快照（審核、調查、實測報告） | `docs/reference/yyyy-mm-dd-<topic>.md` |
+| 已鎖定決策 | `docs/decisions.md`（格式見上節） |
+
+**命名鐵律**：
+- 小寫 kebab-case；不用空格、底線、全大寫（專有名詞如 FinMind 可保留原大小寫）。
+- 日期一律 ISO `yyyy-mm-dd` **前綴**不後綴——檔名排序即時間排序。
+- 檔名講內容不講動作：`tw-etf-optimization-design.md`，不是 `update-etf.md`、`notes.md`。
+
+**生命週期**：
+- spec/plan 是消耗品：對應變更合入主幹後即屬歷史，定期清理（走 trash 流程，git 歷史即封存）；有長青價值的結論先沉澱進 `docs/reference/`、決策日誌或 auto-memory 再刪。
+- `docs/` 根層不放散檔；要新增分類目錄，先在專案 CLAUDE.md 目錄地圖登錄再建。
+- 既有檔名不溯及改名（會斷 CLAUDE.md／skills／程式碼註解的引用）；規範只約束新檔。
+
+## 收尾儀式（每個工作階段結束，2 分鐘）
+
+1. 這次有沒有做出「以後不能反悔」的選擇？→ 落決策日誌。
+2. 這次有沒有踩坑？→ 教訓寫進專案 CLAUDE.md 的坑清單（通用教訓走 [40-maintenance.md](40-maintenance.md)）。
+3. CLAUDE.md 的指令速查還是對的嗎？（改過 scripts 就同步）
+
+**這一步是 harness 長出疤痕質地的唯一途徑**——制度不是寫出來的，是裁汰出來的。收尾儀式可以直接叫當前 session 的模型做：「照 60 號檔的收尾儀式收尾」。
+
+## 變更紀錄
+- 2026-07-05 建檔（Fable 5）
+- 2026-07-15 新增「文件存放與命名規範」節（Fable 5，應使用者要求，範本取自 digrit docs 重整）

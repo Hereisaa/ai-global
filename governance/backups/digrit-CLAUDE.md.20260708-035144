@@ -1,0 +1,49 @@
+# digrit 專案指令（Claude Code / Codex 共用主體）
+
+台股/美股投資研究 web app，含 AI 助理（伴隨助理、大師議會、前瞻研究）。
+本檔是專案慣例的單一事實來源；`AGENTS.md` 只是指向本檔的 router。
+
+## 技術棧
+Next.js 14（App Router）+ React 18 + TypeScript 5（strict）+ Tailwind CSS 3。npm，非 monorepo，路徑別名 `@/*` → 專案根。**程式碼在根層，沒有 `src/`**。
+
+## 指令速查
+| 用途 | 指令 |
+|---|---|
+| dev | `npm run dev`（turbo, 127.0.0.1） |
+| build | `npm run build` |
+| test | `npm run test`（= `vitest run`） |
+| typecheck | `npm run typecheck`（= `tsc --noEmit`） |
+| lint | `npm run lint` |
+
+驗收底線：改程式碼後 `npm run test` 與 `npm run typecheck` 必須實跑全綠才算完成。專案無 CI，本地驗證是唯一防線。
+
+## 慣例（違反會被打回）
+- **Commit message 一律繁體中文**，格式沿用 git log 既有風格（`feat(scope): 描述`）。
+- **交付走分支不開 PR**：push `claude/<topic>` 分支，回報分支名即可。
+- 測試與被測檔同層 co-located，命名 `*.test.ts(x)`（例：`lib/watchlist.test.ts`）。
+- 漲跌顏色、雙幣別顯示、AI provider 抽象等已有鎖定決策——動到相關功能前先讀 auto-memory 的 canon 檔，不要重新發明。
+- AI prompt 必須登錄 registry；agent 顯示名走 displayName SSOT；`agents/_` 底線開頭檔為設定檔。
+- 畫新圖表前先讀 auto-memory 的圖表設計模式（SVG 雙軸 niceScale + hover + 圖例）。
+
+## 目錄地圖
+- `app/` 頁面與路由（stock、compare、screener、portfolio、watchlist、settings…）；`app/api/` API routes（ai、market、stock、news、backup…）
+- `components/` 依領域分的元件（ai、stock、screener、shell、ui…）
+- `lib/` 核心邏輯與資料層（ai、analysis、data、market、cache、security…）
+- `docs/digrit_product_docs/` 產品文件（見下方文件路由）
+
+## 文件路由（動手前按需讀，不要全讀）
+- 產品哲學與 AI 憲法 → `docs/digrit_product_docs/docs/00_MANIFESTO.md`、`02_AI_CONSTITUTION.md`
+- AI 架構與 runtime → `06_AI_ARCHITECTURE.md`、`16_AI_AGENT_RUNTIME.md`、`17_AI_FEATURES_GUIDE.md`
+- 視覺/元件規範（改 UI 前必讀）→ `10a_VISUAL_DESIGN_SYSTEM.md`、`10b_COMPONENT_COLOR_RECIPES.md`
+- 系統與資料層 → `11_SYSTEM_ARCHITECTURE.md`、`12_DATA_LAYER.md`
+- 改版路線與稽核 → `docs/REVAMP_ROADMAP.md`、`docs/digrit_audit_2026-07-02.md`
+- FinMind API 陷阱 → `docs/FinMind-api-reference.md` 與 auto-memory 的 FinMind 檔
+- AI 投資角色定義 → `docs/digrit_product_docs/agents/`；prompt 源 → `docs/digrit_product_docs/prompts/`
+
+## 環境變數（值在 `.env.local`，絕不外流）
+`FMP_API_KEY`（美股必填）、`FINMIND_API_TOKEN`（選填，已訂閱 Sponsor）、AI 至少一組：`GEMINI_API_KEY` / `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`；`AI_PROVIDER`（gemini|anthropic|openai，dev 預設 gemini）。
+
+## 全域制度與記憶
+- 委派/驗證/判斷守則在 `~/Developer/agent-governance/`（全域 CLAUDE.md 已有路由）。
+- 本檔提到的「auto-memory 的 X 檔」若當次未自動載入，索引在 `~/.claude/projects/-Users-aaron-Developer-GitHub-digrit/memory/MEMORY.md`，自己去讀。
+- worktree 內學到的專案教訓，寫回主專案路徑（worktree 的 auto-memory 與主專案不相通）。

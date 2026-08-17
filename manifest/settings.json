@@ -1,0 +1,15 @@
+{
+  "_readme": "Expected shared keys in machine-local config files. These files are rewritten by the tools themselves, so they are never symlinked; /sync-check compares these keys and reports drift. Everything not listed here is machine-local by design.",
+  "claude_settings": {
+    "_file": "~/.claude/settings.json",
+    "permissions.defaultMode": "auto",
+    "statusLine.command": "bash ~/.claude/statusline.sh",
+    "enabledPlugins.ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "extraKnownMarketplaces.ui-ux-pro-max-skill.source.repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+  },
+  "codex_config": {
+    "_file": "~/.codex/config.toml",
+    "model_reasoning_effort": "ultra",
+    "personality": "pragmatic"
+  }
+}

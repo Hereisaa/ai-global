@@ -1,0 +1,52 @@
+# 00 — Harness 診斷（2026-07-03，由 Fable 5 撰寫）
+
+> 本檔是整套制度的「為什麼」。後續檔案（10/20/30/40）的每條規則都對應這裡的某個病灶。
+> 更新規則見 [40-maintenance.md](40-maintenance.md)。
+
+## 前三名問題（按傷害排序）
+
+### 1. 指揮官下場：主對話自己做大量讀取與掃描
+
+**症狀**：主模型在主對話裡直接 grep 整個 repo、逐檔 Read、貼長篇工具輸出。每次讀進來的原始內容都永久佔據 context，直到被壓縮（compaction）——而壓縮時最先丟失的就是任務主線與使用者的原始要求。結果是：token 燒最兇、長 session 後期失焦、開始重問已答過的問題。
+
+**證據**：環境中原本沒有任何委派規範；Claude Code 與 Codex 的預設行為都是 inline 讀檔。digrit 這種規模（app/ + components/ + lib/ 三大樹、約 20 份核心產品文件外加 agents/prompts 子樹）一次全掃就能吃掉大半 context。
+
+**修法**（已制度化於 [10-dispatch.md](10-dispatch.md)）：
+- 觸發條件明確化：預估要讀 >3 個檔或 >400 行、或要掃目錄樹、或要查網頁 → 一律派 subagent，主對話只收結論與 `檔案:行號`。
+- 回報合約：subagent 長產物落檔傳路徑，不准把全文貼回主對話。
+
+### 2. 指令檔失衡：全域檔冗長重複、專案檔缺失
+
+**症狀**：兩頭都錯。
+- 舊 `~/.claude/CLAUDE.md`（4.3KB）每個專案每個 session 都載入，但內容有明顯重複（「繁中回應／保持簡潔／術語解釋／英文註解」在「身份與環境」和「使用者偏好」兩節各寫一次）、過時內容（`~/.claude/skills/` 目錄實際不存在）、以及佔一半篇幅的 Safe Delete 操作範例（規則本身 3 行就能說清楚，範例不需要每次載入）。
+- digrit **沒有專案級 CLAUDE.md**。專案根目錄的 AGENTS.md 只有 570B，且本次 session 實測 Claude Code 並未自動載入它——「commit message 用繁體中文」這條規則 Claude 側的 session 根本看不到。技術棧、測試指令、目錄地圖全靠 auto-memory 的零散檔案，載入與否看運氣。
+
+**修法**（已執行）：
+- 全域 CLAUDE.md 重寫為精簡 router（去重、刪過時、細節抽到本目錄），見 [40-maintenance.md](40-maintenance.md) 的長度預算。
+- 新建 digrit 專案級 `CLAUDE.md` + 擴充 `AGENTS.md`（技術棧、指令速查、慣例、文件路由）。
+
+### 3. 無驗證制度：自驗偏誤 + 完成判準缺失
+
+**症狀**：做完的模型自己宣稱做完。同一個 context 既寫程式又驗收，會把「我剛才的意圖」當成「實際發生的事」——測試沒跑就說通過、檔案沒寫就說寫了、邊界條件想當然。專案記憶中「P1 最後一包待驗證合併」這種懸置狀態就是缺乏完成判準的產物。能力較弱的模型此病更重，因為它們更依賴表面訊號（「程式碼看起來對」）。
+
+**修法**（已制度化於 [10-dispatch.md](10-dispatch.md) §驗證 與 [20-judgment.md](20-judgment.md) §完成判準）：
+- 驗收一律派 fresh-context agent：檔案用 read-back、程式碼用 `npm run test` / `tsc --noEmit` 實跑、高風險判斷加第二意見。
+- 「完成」的定義收窄為：驗收條件逐條有證據（指令輸出、檔案內容），缺一條就不是完成。
+
+## 其他觀察（未進前三，但要知道）
+
+- **Auto-memory 按 cwd 分家**：`~/.claude/projects/` 下 digrit 主目錄與各 worktree（`digrit--claude-worktrees-*`）的記憶互不相通。在 worktree 裡學到的教訓，主專案 session 看不到。→ 教訓一律寫回主專案 memory 或本目錄（規則在 40）。
+- **Superpowers plugin 每 session 注入大段內容**（SessionStart hook），且措辭極強（「1% 可能適用就必須 invoke」）。它與本制度的優先序已在 CLAUDE.md 明訂：使用者指示 > 本制度 > skills 的預設流程。（2026-07-15 使用者決定棄用：Claude plugin 與 Codex skills 皆已移除，本條只留歷史脈絡。）
+- **`~/.claude/settings.json` 的 model 釘在 `claude-fable-5[1m]`**：本 session 結束後此模型不可用，需要使用者改掉（見 [90-letter.md](90-letter.md)）。
+- **permissions defaultMode 為 auto**：權限提示少，代表危險操作更依賴制度自律（Safe Delete、confirm-before-irreversible）。
+
+## 誠實條款：制度補不了的洞
+
+拆解、驗證、多樣本評審能把「執行品質」補到接近高階模型；但以下兩類補不了，遇到時照 [20-judgment.md](20-judgment.md) §升級與求助 處理：
+
+1. **模糊題**（需求本身沒說清楚、多種合理解讀）：流程只能逼你「發現」模糊，不能替你「消除」模糊。做法：停下來問使用者，或列出 2–3 種解讀請使用者選，不要自己挑一種悶頭做。
+2. **品味判斷**（架構取捨、UX 手感、文案語氣）：多答案評審選優可以逼近，但天花板就是評審模型自己的品味。做法：能升級模型就升級；不能就明說「這是品味判斷，我給出的是合理解而非最優解」，讓使用者知道該親自看。
+
+## 變更紀錄
+- 2026-07-03 建檔（Fable 5）
+- 2026-07-15 Superpowers 條目標記為歷史（使用者棄用並移除該 plugin/skills）（Fable 5）

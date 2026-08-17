@@ -1,0 +1,15 @@
+.DS_Store
+.worktrees/
+node_modules/
+.next/
+out/
+dist/
+coverage/
+tsconfig.tsbuildinfo
+.digrit-cache/
+.digrit-data/
+.env
+.env*.local
+.superpowers/
+node_modules
+var/
