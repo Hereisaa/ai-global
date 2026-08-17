@@ -20,7 +20,7 @@ while IFS= read -r line; do fields+=("$line"); done < <(
     , (.rate_limits.seven_day.resets_at // "")
     , (.context_window.total_input_tokens // "")
     , (.context_window.total_output_tokens // "")
-    ] | .[]' 2>/dev/null
+    ] | .[]' 2>/dev/null | tr -d '\r'
 )
 cwd=${fields[0]-}  model=${fields[1]-}  ctx=${fields[2]-}
 fh=${fields[3]-}   fhr=${fields[4]-}    sd=${fields[5]-}  sdr=${fields[6]-}
