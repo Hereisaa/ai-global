@@ -2,10 +2,33 @@
   "_readme": "Expected shared keys in machine-local config files. These files are rewritten by the tools themselves, so they are never symlinked; /sync-check compares these keys and reports drift. Everything not listed here is machine-local by design.",
   "claude_settings": {
     "_file": "~/.claude/settings.json",
-    "permissions.defaultMode": "auto",
-    "statusLine.command": "bash ~/.claude/statusline.sh",
-    "enabledPlugins.ui-ux-pro-max@ui-ux-pro-max-skill": true,
-    "extraKnownMarketplaces.ui-ux-pro-max-skill.source.repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+    "_note": "blocks below are authoritative shared config: sync-check compares deep-equal per block and applies the manifest version after user confirms",
+    "permissions": {
+      "defaultMode": "auto",
+      "allow": [],
+      "deny": [
+        "Bash(rm *)",
+        "Bash(rmdir *)",
+        "Bash(sudo rm *)"
+      ],
+      "ask": [
+        "Bash(git push --force*)",
+        "Bash(git push -f*)",
+        "Bash(git push origin --delete*)"
+      ]
+    },
+    "statusLine": {
+      "type": "command",
+      "command": "bash ~/.claude/statusline.sh"
+    },
+    "enabledPlugins": {
+      "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+      "gsap-skills@gsap-skills": true
+    },
+    "extraKnownMarketplaces": {
+      "ui-ux-pro-max-skill": { "source": { "source": "github", "repo": "nextlevelbuilder/ui-ux-pro-max-skill" } },
+      "gsap-skills": { "source": { "source": "github", "repo": "greensock/gsap-skills" } }
+    }
   },
   "codex_config": {
     "_file": "~/.codex/config.toml",

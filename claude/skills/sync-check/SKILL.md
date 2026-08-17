@@ -25,7 +25,8 @@ description: 對帳 ai-global 同步倉庫與本機 AI 全域環境：git pull�
 - 反向檢查：本機有、manifest 沒有的第三方 skill/plugin → 列出來問使用者「要納入 manifest（兩台都裝）還是本機獨有？」
 
 ## 4. settings 共用項（`manifest/settings.json`）
-逐 key 比對 `~/.claude/settings.json` 與 `~/.codex/config.toml`。缺項或值不同 → 列表回報並問以哪邊為準；要改本機檔案時先備份再改。
+- `claude_settings` 的結構化區塊（`permissions`、`statusLine`、`enabledPlugins`、`extraKnownMarketplaces`）：與 `~/.claude/settings.json` 對應區塊做深度比對，manifest 是共用基準。本機缺漏 → 先備份 settings.json，再把 manifest 版本合併進去（保留本機獨有的其他 key）。本機多出或值不同 → 列給使用者裁決：要更新 manifest（改共用基準並 push）還是改回本機。
+- `codex_config` 的 key：逐項比對 `~/.codex/config.toml`，同樣缺補、異問。
 
 ## 5. 回報
 結論先行（「已同步」／「補了 N 項」／「M 項差異待裁決」），再逐項列動作與證據（指令輸出關鍵行）。
