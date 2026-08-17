@@ -11,7 +11,7 @@
 - 開 worktree／分支一律用 `claude/<主題>`，不要用隨機生成名；交付與回報一律附上分支名。
 
 ## 環境
-- macOS（Apple Silicon, M4 Mac mini），zsh；工作區 `~/Developer/`，GitHub 專案在 `~/Developer/GitHub/`。
+- 兩台機器共用本設定（正本在 git repo `~/Developer/GitHub/ai-global`）：主力 macOS（M4 Mac mini，zsh）；副機 Windows。工作區 `~/Developer/`，GitHub 專案在 `~/Developer/GitHub/`，兩平台同構。
 - 進入專案先讀該專案根目錄的 `AGENTS.md` 與 `CLAUDE.md`（若存在）。
 
 ## 工程開發與輸出格式（完整原文與適用範圍 → `~/Developer/agent-governance/80-engineering.md`）
@@ -46,3 +46,4 @@
 
 ## 變更紀錄
 - 2026-08-16 新增「工程開發與輸出格式」節，完整版在 `80-engineering.md`（Fable 5，應使用者要求）
+- 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）

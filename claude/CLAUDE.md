@@ -1,8 +1,8 @@
 # 全域指令（所有專案適用）
 
 ## 環境
-- macOS（Apple Silicon, M4 Mac mini），Shell 為 zsh。
-- 主要工作區 `~/Developer/`；GitHub 專案在 `~/Developer/GitHub/`。
+- 兩台機器共用本設定（正本在 git repo `~/Developer/GitHub/ai-global`）：主力 macOS（Apple Silicon, M4 Mac mini，zsh）；副機 Windows（PowerShell／Git Bash）。以實際偵測到的 OS 為準。
+- 主要工作區 `~/Developer/`；GitHub 專案在 `~/Developer/GitHub/`（兩平台同構，Windows 在 `%USERPROFILE%` 下）。
 - 進入專案先讀該專案根目錄的 `CLAUDE.md` 與 `AGENTS.md`（若存在）。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
@@ -54,3 +54,4 @@
 ## 變更紀錄
 - 2026-07-31 新增「多 session 並行」節（Opus 5）
 - 2026-08-16 新增「工程開發與輸出格式」節（完整版在 `80-engineering.md`）；制度目錄精簡，00/90/REPORT 歸檔（Fable 5，應使用者要求）
+- 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）
