@@ -1,0 +1,131 @@
+model = "gpt-5.6-terra"
+model_reasoning_effort = "medium"
+service_tier = "default"
+notify = [ "C:\\Users\\a0979\\AppData\\Local\\OpenAI\\Codex\\runtimes\\cua_node\\1cb4becc994cbb02\\bin\\node_modules\\@oai\\sky\\bin\\windows\\codex-computer-use.exe", "turn-ended" ]
+[features]
+js_repl = false
+
+[marketplaces.openai-bundled]
+last_updated = "2026-07-27T17:42:29Z"
+source_type = "local"
+source = '\\?\C:\Users\a0979\.codex\.tmp\bundled-marketplaces\openai-bundled'
+
+[marketplaces.openai-primary-runtime]
+last_updated = "2026-08-17T06:45:07Z"
+source_type = "local"
+source = '\\?\C:\Users\a0979\.cache\codex-runtimes\codex-primary-runtime\plugins\openai-primary-runtime'
+
+[marketplaces.claude-plugins-official]
+last_updated = "2026-08-17T06:44:51Z"
+last_revision = "8864c9d619547417e9bd9305df0b4fc078f89b08"
+source_type = "git"
+source = "https://github.com/anthropics/claude-plugins-official.git"
+
+[plugins."documents@openai-primary-runtime"]
+enabled = true
+
+[plugins."presentations@openai-primary-runtime"]
+enabled = true
+
+[plugins."spreadsheets@openai-primary-runtime"]
+enabled = true
+
+[plugins."superpowers@claude-plugins-official"]
+enabled = true
+
+[plugins."browser@openai-bundled"]
+enabled = true
+
+[plugins."pdf@openai-primary-runtime"]
+enabled = true
+
+[plugins."template-creator@openai-primary-runtime"]
+enabled = true
+
+[plugins."sites@openai-bundled"]
+enabled = true
+
+[plugins."visualize@openai-bundled"]
+enabled = true
+
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+PYTHONIOENCODING = "utf-8"
+PYTHONUTF8 = "1"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "8e172ec9f458f2e636fc69a1b8c68c217f6bb8d10c41f70a05a0878b73863701"
+NODE_REPL_TRUSTED_CODE_PATHS = 'C:\Users\a0979\.codex;C:\Users\a0979\AppData\Local\OpenAI\Codex\runtimes\cua_node\1cb4becc994cbb02\bin\node_modules'
+
+[windows]
+sandbox = "elevated"
+
+[hooks.state]
+
+[hooks.state.'C:\Users\a0979\.codex\hooks.json:session_start:0:0']
+trusted_hash = "sha256:33a7e000838d25fc96025a240b86c4c11a03bcfb3b51d099edf8843bcd6f589c"
+
+[hooks.state."superpowers@claude-plugins-official:hooks/hooks.json:session_start:0:0"]
+trusted_hash = "sha256:62acbaff2b2f55f41971e21a164990aaa53c96919baa0a5eae2eb5db73b9e6e6"
+
+[hooks.state."superpowers@claude-plugins-official:hooks/hooks-codex.json:session_start:0:0"]
+trusted_hash = "sha256:687e7af87f0cb59b1bcc71d368e097304b45d84999c90dc97358a22811691a3f"
+
+[projects.'d:\github']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979\documents\codex\2026-05-27\macos-hermes-agent-llm-ai-gemini']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979\documents\codex\2026-05-28\ls-cat-typescript-hermes-soul-md']
+trust_level = "trusted"
+
+[projects.'d:\github\ai-workspace\projects\digrit']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979\documents\codex\2026-06-27\android-authtab-android-browser-android-35']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979\onedrive\桌面\20260715']
+trust_level = "trusted"
+
+[projects.'c:\users\a0979\documents\codex\2026-07-15\new-chat']
+trust_level = "trusted"
+
+[tui]
+status_line = ["model-with-reasoning", "current-dir", "model", "project-name", "git-branch", "pull-request-number"]
+status_line_use_colors = true
+
+[tui.model_availability_nux]
+"gpt-5.5" = 1
+
+[mcp_servers.node_repl]
+args = []
+command = 'C:\Users\a0979\AppData\Local\OpenAI\Codex\runtimes\cua_node\1cb4becc994cbb02\bin\node_repl.exe'
+startup_timeout_sec = 120
+
+[mcp_servers.node_repl.env]
+NODE_REPL_NATIVE_PIPE_CONNECT_TIMEOUT_MS = "1000"
+NODE_REPL_NODE_MODULE_DIRS = 'C:\Users\a0979\AppData\Local\OpenAI\Codex\runtimes\cua_node\1cb4becc994cbb02\bin\node_modules'
+NODE_REPL_NODE_PATH = 'C:\Users\a0979\AppData\Local\OpenAI\Codex\runtimes\cua_node\1cb4becc994cbb02\bin\node.exe'
+NODE_REPL_TRUSTED_CODE_PATHS = 'C:\Users\a0979\.codex;C:\Users\a0979\AppData\Local\OpenAI\Codex\runtimes\cua_node\1cb4becc994cbb02\bin\node_modules'
+CODEX_HOME = 'C:\Users\a0979\.codex'
+NODE_REPL_TRUSTED_BROWSER_CLIENT_SHA256S = "8e172ec9f458f2e636fc69a1b8c68c217f6bb8d10c41f70a05a0878b73863701"
+BROWSER_USE_AVAILABLE_BACKENDS = "chrome,iab"
+NODE_REPL_INSTRUCTIONS_USE_CASE_BROWSER = "Control the in-app browser in conjunction with the Browser Plugin."
+NODE_REPL_INSTRUCTIONS_USE_CASE_CHROME = "Control the Chrome browser in conjunction with the Chrome Plugin. Prefer this method of controlling Chrome over alternatives (such as Computer Use) unless the user explicitly mentions an alternative."
+BROWSER_USE_CODEX_APP_BUILD_FLAVOR = "prod"
+BROWSER_USE_CODEX_APP_VERSION = "26.810.52044"
+SKY_CUA_NATIVE_PIPE = "1"
+SKY_CUA_NATIVE_PIPE_DIRECTORY = '\\.\pipe\codex-computer-use-0260e32e-450e-442a-a1cb-0260cbfa6c74'
+CODEX_CLI_PATH = 'C:\Users\a0979\AppData\Local\OpenAI\Codex\bin\e305f1c75d8da435\codex.exe'
+
+[desktop]
+conversationDetailMode = "STEPS_COMMANDS"
+ambient-suggestions-enabled = false
+followUpQueueMode = "queue"
+appearanceTheme = "dark"
