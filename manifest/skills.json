@@ -9,7 +9,7 @@
     { "name": "web-video-presentation", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.2.2" },
     { "name": "taste-skill", "type": "skill", "source": "github:Leonxlnx/taste-skill" },
     { "name": "ui-styling", "type": "skill", "source": "github:mrgoonie/claudekit-skills", "path": "plugins/web-dev-tools/skills/ui-styling", "version": "1.0.0" },
-    { "name": "ui-ux-pro-max", "type": "plugin", "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill", "version": "2.5.0" },
+    { "name": "ui-ux-pro-max", "type": "plugin", "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill", "version": "2.13.0" },
     { "name": "web-interface-guidelines", "type": "command", "source": "github:vercel-labs/web-interface-guidelines", "target": "~/.claude/commands/web-interface-guidelines.md" }
   ]
 }
