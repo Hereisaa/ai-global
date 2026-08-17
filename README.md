@@ -2,6 +2,26 @@
 
 跨機器（macOS ↔ Windows）同步 AI 工具的**使用者全域層**：system prompt（CLAUDE.md／AGENTS.md）、制度規則（agent-governance）、自製 skills／commands／agents、hooks，以及第三方能力的安裝清單。
 
+## 給 AI agent 的指引（讀到這裡的模型，照此執行）
+
+**這個 repo 是什麼**：使用者 Aaron 的 AI 全域設定「正本」。部署後，`~/.claude/CLAUDE.md`、`~/Developer/agent-governance/`、`~/.claude/hooks/`、`~/.codex/AGENTS.md` 與部分 skills 都是指向本 repo 的連結——**改那些路徑就是改本 repo 的工作區**。
+
+**如果你被要求「設置／接上這台機器」，依序執行**：
+1. 判斷 OS，跑對應腳本（冪等，可重複執行；它不刪檔，被取代的既有檔會移入 `~/Developer/temp/trash/`）：
+   - macOS/Linux：`bash setup/install.sh`（之後可用 `bash setup/install.sh check` 驗證）
+   - Windows 原生：`powershell -ExecutionPolicy Bypass -File setup\install.ps1`（目錄用 Junction；單檔 symlink 建議先開「開發人員模式」，否則退回複製模式）
+2. 照 `manifest/skills.json` 補裝第三方能力：`type: plugin` 引導使用者用 `/plugin` 安裝；`type: skill` 從 `source` 標的 GitHub repo 抓對應目錄放入 `~/.claude/skills/<name>/`；`type: command` 放入 `target` 路徑。
+3. 照 `manifest/settings.json` 核對本機 `~/.claude/settings.json` 與 `~/.codex/config.toml` 的共用 key，缺漏回報使用者裁決後補上。
+4. 完成後逐項回報 PASS/FAIL 附證據。（Claude Code 裝好後，以上第 2–3 步可直接用 `/sync-check` skill 執行。）
+
+**如果你被要求「同步／對帳」**：`git pull --ff-only` 後執行上面第 1（check 模式）～4 步。
+
+**紅線（對 agent 強制）**：
+- 修改本 repo 內容後必須 `git commit && git push`，否則另一台機器拿不到。
+- 禁止 `rm`／程式化刪除；移除一律 `mv` 進 `~/Developer/temp/trash/` 加時間戳。
+- 任何憑證（`.credentials.json`、`auth.json`、`.env*`、API key）不得進本 repo；commit 前自查。
+- 制度檔（`governance/`）的修改要先讀 `governance/40-maintenance.md`（備份、變更紀錄、權限分級）。
+
 ## 設計原則
 
 - **搬得動的檔案**：正本放本倉庫，各機器用 symlink（macOS/Linux）或 Junction（Windows）鋪回 AI 工具認得的固定位置。改一處即全機同步，物理上不可能漂移。
