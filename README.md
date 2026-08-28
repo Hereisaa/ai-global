@@ -61,6 +61,10 @@ bash ~/Developer/GitHub/ai-global/setup/install.sh
    powershell -ExecutionPolicy Bypass -File $env:USERPROFILE\Developer\GitHub\ai-global\setup\install.ps1
    ```
 3. 注意：`claude/hooks/` 內是 bash 腳本，原生 Windows 需 Git Bash 才能執行；制度路徑統一為 `~/Developer/agent-governance`（install.ps1 會在 `%USERPROFILE%\Developer\` 建 Junction，Git Bash 下 `$HOME/Developer/...` 同樣成立）。
+4. 記憶體回收（Windows 專屬，選用）：長期跑 Claude Code 會留下孤兒程序（MCP server、dev server、模擬器、headless 瀏覽器）與只長不縮的 WSL vmmem。`claude/hooks/cleanup-orphans.ps1` 負責清理，兩層觸發：
+   - `SessionEnd` hook（`~/.claude/settings.json`，機器本地，手動加）：`powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude\hooks\cleanup-orphans.ps1" -Scope session` — 只清該 session 自己的子孫。
+   - 排程工作：`powershell -ExecutionPolicy Bypass -File setup\install-cleanup-task.ps1`（每 2 小時＋登入；`-IntervalHours N` 調整、`-Uninstall` 移除）— 清父程序已消失的孤兒、Docker 閒置且 vmmem >3 GB 時 `wsl --shutdown`。
+   - 安全規則：**絕不殺 `claude` 主程序**（Remote Control 就是長駐的 claude），命令列含 `remote-control` 的整棵子樹一律跳過；超過 1.5 GB 或 24 小時的 session 只發 toast 提醒。紀錄在 `~/.claude/logs/cleanup.log`；`-DryRun` 可預演。
 
 ### 裝完之後（兩平台相同）
 
