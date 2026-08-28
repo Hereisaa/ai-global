@@ -53,6 +53,13 @@ git clone git@github.com:Hereisaa/ai-global.git ~/Developer/GitHub/ai-global
 bash ~/Developer/GitHub/ai-global/setup/install.sh
 ```
 
+記憶體回收（macOS 專屬，選用）：`claude/hooks/cleanup-orphans.sh`，與 Windows 版同語意、同 log 檔，兩層觸發：
+- `SessionEnd` hook（`~/.claude/settings.json`，機器本地，手動加）：`bash ~/.claude/hooks/cleanup-orphans.sh --scope session` — 只清該 session 自己的子孫。
+- launchd agent：`bash setup/install-cleanup-agent.sh`（每 2 小時＋載入時；`--interval-hours N` 調整、`--uninstall` 移除）。
+- macOS 與 Windows 的差異（因為孤兒在 macOS 是被 launchd 收養成 ppid=1，不是失去父程序）：只看自己 uid 的程序；`launchctl list` 裡的 PID 一律跳過（那是使用者自己註冊的服務，例如 dev server、gateway）；`~/.claude/cleanup-protect.txt` 可加自訂保護 regex（一行一條）。
+- 容器 VM 對應 Windows 的 vmmem：Colima／lima。VM >3 GB 且無執行中容器才處理；若該 VM 由 `KeepAlive` 的 launchd job 監管（Homebrew 版 colima 預設如此），**只記錄不停止**——停了會被立刻拉回來，log 會附上該用的 `launchctl bootout` 指令。另外偵測到 Docker Desktop 與非 Desktop context 並存時會提醒關掉。
+- 安全規則與 Windows 版一致：**絕不殺 `claude` 主程序**，命令列含 `remote-control` 的整棵子樹跳過；超過 1.5 GB 或 24 小時的 session 只發通知。紀錄在 `~/.claude/logs/cleanup.log`；`--dry-run` 可預演。
+
 ### Windows（原生）
 
 1. 一次性設定：開啟「開發人員模式」（設定 → 隱私權與安全性 → 開發人員專用），否則單檔 symlink 需系統管理員權限（腳本會自動退回複製模式並警告）。
@@ -61,7 +68,7 @@ bash ~/Developer/GitHub/ai-global/setup/install.sh
    powershell -ExecutionPolicy Bypass -File $env:USERPROFILE\Developer\GitHub\ai-global\setup\install.ps1
    ```
 3. 注意：`claude/hooks/` 內是 bash 腳本，原生 Windows 需 Git Bash 才能執行；制度路徑統一為 `~/Developer/agent-governance`（install.ps1 會在 `%USERPROFILE%\Developer\` 建 Junction，Git Bash 下 `$HOME/Developer/...` 同樣成立）。
-4. 記憶體回收（Windows 專屬，選用）：長期跑 Claude Code 會留下孤兒程序（MCP server、dev server、模擬器、headless 瀏覽器）與只長不縮的 WSL vmmem。`claude/hooks/cleanup-orphans.ps1` 負責清理，兩層觸發：
+4. 記憶體回收（Windows 專屬，選用；macOS 對應版見上節）：長期跑 Claude Code 會留下孤兒程序（MCP server、dev server、模擬器、headless 瀏覽器）與只長不縮的 WSL vmmem。`claude/hooks/cleanup-orphans.ps1` 負責清理，兩層觸發：
    - `SessionEnd` hook（`~/.claude/settings.json`，機器本地，手動加）：`powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude\hooks\cleanup-orphans.ps1" -Scope session` — 只清該 session 自己的子孫。
    - 排程工作：`powershell -ExecutionPolicy Bypass -File setup\install-cleanup-task.ps1`（每 2 小時＋登入；`-IntervalHours N` 調整、`-Uninstall` 移除）— 清父程序已消失的孤兒、Docker 閒置且 vmmem >3 GB 時 `wsl --shutdown`。
    - 安全規則：**絕不殺 `claude` 主程序**（Remote Control 就是長駐的 claude），命令列含 `remote-control` 的整棵子樹一律跳過；超過 1.5 GB 或 24 小時的 session 只發 toast 提醒。紀錄在 `~/.claude/logs/cleanup.log`；`-DryRun` 可預演。

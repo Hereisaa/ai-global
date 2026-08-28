@@ -1,0 +1,100 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx vitest run *)",
+      "Bash(npm run test)",
+      "Bash(npm run test *)",
+      "Bash(npm run typecheck)",
+      "Bash(npm run typecheck *)",
+      "Bash(npm run lint)",
+      "Bash(npm run lint *)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(launchctl list *)",
+      "mcp__Claude_Browser__read_page",
+      "mcp__Claude_Browser__get_page_text",
+      "mcp__Claude_Browser__find",
+      "mcp__Claude_Browser__read_console_messages",
+      "mcp__Claude_Browser__read_network_requests",
+      "mcp__Claude_Browser__preview_logs"
+    ],
+    "deny": [
+      "Bash(rm *)",
+      "Bash(rmdir *)",
+      "Bash(sudo rm *)"
+    ],
+    "ask": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push origin --delete*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "ui-ux-pro-max@ui-ux-pro-max-skill": true,
+    "productivity@inline": false,
+    "product-management@inline": false,
+    "marketing@inline": false,
+    "finance@inline": false,
+    "data@inline": false,
+    "engineering@inline": false,
+    "design@inline": false,
+    "gsap-skills@gsap-skills": true
+  },
+  "extraKnownMarketplaces": {
+    "ui-ux-pro-max-skill": {
+      "source": {
+        "source": "github",
+        "repo": "nextlevelbuilder/ui-ux-pro-max-skill"
+      }
+    },
+    "gsap-skills": {
+      "source": {
+        "source": "github",
+        "repo": "greensock/gsap-skills"
+      }
+    }
+  },
+  "tui": "fullscreen",
+  "skipWorkflowUsageWarning": true,
+  "theme": "dark",
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "soft_deny": [
+      "$defaults",
+      "Bash(rm:*)"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: None configured",
+      "**Cloud provider(s)**: None configured",
+      "**Repository visibility**: Not queryable here (no git remote / repo detected — recon shows no tracked files and no remotes in /Users/aaron); assume private until confirmed",
+      "**Internal sharing / snippet hosting**: None configured — treat public paste/gist services as outside the trust boundary",
+      "**Secrets management**: None configured",
+      "**Default / protected branches**: Not queryable here (no origin remote, default branch unset)",
+      "**CI/CD deploy targets**: None configured",
+      "**Network posture**: None configured",
+      "**Source control**: No repo detected at the working directory (/Users/aaron, 0 tracked files, no remotes) — no source control trust scope to grant",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: None configured — the config-scan bucket names (e.g. \"bucket\", \"my-bucket\", \"bucket_name\", \"translation_test\") are generic placeholder-style names found across many files with no usage corroboration in the transcript-mining section, and no host repo was identified to scope them to",
+      "**Key internal services**: None configured",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: any file or store holding personal data, confidential business data, credentials, regulated data, or similarly sensitive material; preserve exact handles when known and share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace, host, or container whose name carries \"prod\" or \"production\" as a whole word or name segment (hyphen/underscore/dot-delimited)",
+      "**Protected deployment namespaces / environments**: None configured — fall back to the Sensitive remote targets heuristic",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries \"prod\" or \"production\" as a whole word or name segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development, with heavy use of design/content-generation skills (article formatting, brand-kit imagery, UI styling, GSAP animation) alongside multi-session/worktree-based coding workflows per ~/.claude/CLAUDE.md",
+      "**Trusted repo**: No git repository detected at the working directory (/Users/aaron has 0 tracked files and no remotes) — no trusted repo to scope commits/pushes to; the global CLAUDE.md references \"~/Developer/\" and \"~/Developer/GitHub/\" as the general workspace, but this session's directory is not inside a git checkout",
+      "**Org-specific CLIs**: None configured — shell history shows generic dev tooling (npm, git, cargo, brew, tailscale, tmux) and the \"claude\"/\"codex\" CLIs, none of which are org-specific",
+      "**routine under <user>/ prefix**: The user's global CLAUDE.md (~/.claude/CLAUDE.md) requests: no rm/rm -rf/rmdir or programmatic delete (move to ~/Developer/temp/trash/ instead), and confirmation before force-push, deleting remote branches, publishing, or sending messages"
+    ]
+  }
+}
