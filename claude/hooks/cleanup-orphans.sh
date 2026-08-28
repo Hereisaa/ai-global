@@ -136,7 +136,7 @@ function descends_from(p, root,   cur, guard) {
 }
 BEGIN {
   split("node deno bun python python2 python3 ruby php java dart esbuild " \
-        "qemu-system-aarch64 qemu-system-x86_64 emulator " \
+        "qemu-system-aarch64 qemu-system-x86_64 emulator docker-agent " \
         "chrome chromium headless_shell", h, " ")
   for (i in h) HELPER[h[i]] = 1
   split("chrome chromium", ho, " ")
