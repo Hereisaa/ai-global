@@ -57,7 +57,7 @@ bash ~/Developer/GitHub/ai-global/setup/install.sh
 - `SessionEnd` hook（`~/.claude/settings.json`，機器本地，手動加）：`bash ~/.claude/hooks/cleanup-orphans.sh --scope session` — 只清該 session 自己的子孫。
 - launchd agent：`bash setup/install-cleanup-agent.sh`（每 2 小時＋載入時；`--interval-hours N` 調整、`--uninstall` 移除）。
 - macOS 與 Windows 的差異（因為孤兒在 macOS 是被 launchd 收養成 ppid=1，不是失去父程序）：只看自己 uid 的程序；`launchctl list` 裡的 PID 一律跳過（那是使用者自己註冊的服務，例如 dev server、gateway）；`~/.claude/cleanup-protect.txt` 可加自訂保護 regex（一行一條）。
-- 容器 VM 對應 Windows 的 vmmem：Colima／lima。VM >3 GB 且無執行中容器才處理；若該 VM 由 `KeepAlive` 的 launchd job 監管（Homebrew 版 colima 預設如此），**只記錄不停止**——停了會被立刻拉回來，log 會附上該用的 `launchctl bootout` 指令。另外偵測到 Docker Desktop 與非 Desktop context 並存時會提醒關掉。
+- 容器 VM 對應 Windows 的 vmmem：Colima／lima。VM >3 GB 且無執行中容器時 `colima stop`。實測：Homebrew 版 colima 的 launchd job 雖設 `KeepAlive`，但 `colima start -f` 這個監管程序在 VM 停止後不會結束，所以 launchd 不會把 VM 拉回來——停了就是停了，log 會附上重啟指令 `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.colima`。另外偵測到 Docker Desktop 與非 Desktop context 並存時會提醒關掉。
 - 安全規則與 Windows 版一致：**絕不殺 `claude` 主程序**，命令列含 `remote-control` 的整棵子樹跳過；超過 1.5 GB 或 24 小時的 session 只發通知。紀錄在 `~/.claude/logs/cleanup.log`；`--dry-run` 可預演。
 
 ### Windows（原生）

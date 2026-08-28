@@ -23,8 +23,9 @@
 #     is never a candidate — that is a service the user registered on purpose.
 #   * Only processes owned by the invoking user are ever considered.
 #   * Extra regexes in ~/.claude/cleanup-protect.txt are skipped.
-#   * A container VM supervised by a KeepAlive launchd job is reported, not
-#     stopped: launchd would restart it immediately.
+#   * Stopping the container VM sticks: the supervising `colima start -f`
+#     launchd job keeps running after the VM goes down, so KeepAlive never
+#     fires and the VM stays stopped until it is kickstarted.
 
 set -u
 
@@ -232,22 +233,19 @@ if [ -n "$warns" ]; then
   osascript -e "display notification \"$warns\" with title \"Claude Code: long-lived sessions\"" 2>/dev/null
 fi
 
-# Container VM: only when it has grown AND nothing is using it. A KeepAlive
-# launchd job would restart the VM the moment it exits, so report instead.
+# Container VM: only when it has grown AND nothing is using it.
 if [ "${vm_mb:-0}" -ge "$VM_SHUTDOWN_MB" ]; then
   containers=$(docker ps -q 2>/dev/null | grep -c . || true)
   if [ "${containers:-1}" -eq 0 ]; then
-    keepalive=""
-    for plist in "$HOME/Library/LaunchAgents"/*colima*.plist "$HOME/Library/LaunchAgents"/*lima*.plist; do
-      [ -f "$plist" ] || continue
-      grep -q "KeepAlive" "$plist" && keepalive="$plist"
-    done
-    if [ -n "$keepalive" ]; then
-      log "VM ${vm_mb}MB idle but supervised by KeepAlive job $(basename "$keepalive") — not stopping (launchd would restart it); run: launchctl bootout gui/\$UID/$(basename "$keepalive" .plist)"
-    elif [ "$DRY_RUN" = 1 ]; then
+    restart_hint="launchctl kickstart -k gui/\$(id -u)/homebrew.mxcl.colima"
+    if [ "$DRY_RUN" = 1 ]; then
       log "DRYRUN colima stop (VM ${vm_mb}MB, no containers)"
     elif command -v colima >/dev/null 2>&1; then
-      colima stop >/dev/null 2>&1 && log "colima stop (VM ${vm_mb}MB, no containers)"
+      if colima stop >/dev/null 2>&1; then
+        log "colima stop (VM ${vm_mb}MB, no containers); restart with: $restart_hint"
+      else
+        log "colima stop failed (VM ${vm_mb}MB)"
+      fi
     fi
   else
     log "VM ${vm_mb}MB but in use (containers=$containers)"
