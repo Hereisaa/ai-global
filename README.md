@@ -65,10 +65,10 @@ setup/
 **如果你被要求「同步／對帳」**：`git pull --ff-only`，再跑 check（macOS `bash setup/install.sh check`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1 -Mode check`），照下表處置，最後做上面第 2–4 步。
 
 **紅線（對 agent 強制）**：
-- 修改本 repo 內容後必須 `git commit && git push`，否則另一台機器拿不到。
+- 修改本 repo 內容後完成驗證與回報並 commit；**push 須有使用者對具體遠端／分支的明確授權**（依 `governance/40-maintenance.md`）。未推送的變更不會同步到另一台機器。
 - **不要直接編輯部署端**（`~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md`、`~/.ai-global/**`）。改 clone 內的對應檔，再部署。
 - 禁止 `rm`／程式化刪除；移除一律 `mv` 進 `~/.ai-trash/` 加時間戳。
-- 任何憑證（`.credentials.json`、`auth.json`、`.env*`、API key）不得進本 repo；commit 前自查。
+- 任何真實憑證（`.credentials.json`、`auth.json`、環境值、API key）不得進本 repo；無秘密的 `.env.example` 依 `governance/50-safety.md` 檢查後可追蹤。commit 前自查。
 - 制度檔（`governance/`）的修改要先讀 `governance/40-maintenance.md`（備份、變更紀錄、權限分級）。
 
 ## 部署對照表
@@ -168,11 +168,25 @@ pull 之後直接跑 install：斷鏈會報 `STALE` 並自動清掉，`~/.ai-glo
 
 ## 日常工作流
 
-- 改了 CLAUDE.md／制度檔／自製 skill → 在 clone 內改 → 跑 install 部署 → `git commit && git push`。
+- 改了 CLAUDE.md／制度檔／自製 skill → 在 clone 內改 → 跑 install 部署 → 驗證 → commit；push 依授權。
 - 換到另一台開工前 → `git pull` → 跑 `check` → 需要就 install。（或直接 `/ai-global`，它包含 pull、check 與 manifest 對帳。）
 - 裝了新的第三方 skill 且想要兩台都有 → 把它記進 `manifest/skills.json` 再 push。
 - 改 CLAUDE.md 或 AGENTS.md 任一邊 → 順手看另一邊要不要跟；兩邊節次刻意對齊，只在工具能力處分歧（分支前綴 `claude/` vs `codex/`、`/ai-global` 只有 Claude Code 能跑、子代理機制）。
 - 制度檔的修改規範（備份、變更紀錄、權限分級）照 `governance/40-maintenance.md`；git 歷史是第二層回滾機制。
+
+## 治理檢查
+
+```bash
+python setup/check_governance.py            # 離線：兩個 router 節次對齊與各自前綴、制度路由、相對連結、manifest 結構
+python -m unittest discover -s setup -p 'test_*.py'
+python setup/check_governance.py --local    # 加上本機副本內容與白名單設定欄位的對帳
+```
+
+離線檢查支援 Python 3.9+；`--local` 的 Codex TOML 對帳需 Python 3.11+，舊版跳過時會明列缺口。測試前設 `PYTHONDONTWRITEBYTECODE=1` 避免產生快取。`.github/workflows/governance.yml` 在 push／PR 於三個 OS 跑離線檢查與單元測試——工作流程存在不等於分支保護已設。
+
+- 離線檢查會擋的：兩個 router `##` 節次不對齊（Cowork 為 Claude 專屬例外）、AGENTS.md 抄到 `claude/` 前綴或 CLAUDE.md 抄到 `codex/`、router 缺任一制度檔路由、相對連結斷鏈、manifest 白名單欄位型別錯。行數只是維護預算（WARN）。
+- `--local` 只回報漂移不改設定；完整部署對帳仍以 `setup/install.* check` 與 `/ai-global` 為準（含 hooks、skills、EXTRA／BEHIND／EDITED 分類）。
+- 這些檢查不會強制模型遵守紅線，也不會自動調整本機 sandbox、權限或 hooks。[驗收情境](docs/reference/governance-evaluation.md) 用於獨立讀回；[執行環境參考](docs/reference/agent-runtime.md) 記錄各工具的載入與權限機制。
 
 ## 紅線
 
