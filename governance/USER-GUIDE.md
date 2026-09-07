@@ -12,7 +12,7 @@
    ├─ ~/.claude/CLAUDE.md          （Claude Code / Cowork）
    └─ ~/.codex/AGENTS.md           （Codex）
    ↓ 按情境指向
-制度目錄 ~/Developer/agent-governance/   ← 實質規則的單一事實來源
+制度目錄 ~/.ai-global/governance/        ← 實質規則的單一事實來源
    ├─ 10 委派與驗證   20 判斷 rubric   30 派工模板
    ├─ 40 維護協議     50 安全細則     60 新專案起手式
    └─ 70 行為契約     80 工程原則與輸出格式
@@ -89,7 +89,7 @@
 ## 六、FAQ
 
 **Q：換了新模型（比如以後接 GPT 或新版 Claude）要做什麼？**
-第一個 session 說「先讀 `~/Developer/agent-governance/README.md`」。router 會自動載入，這句只是保險。
+第一個 session 說「先讀 `~/.ai-global/governance/README.md`」。router 會自動載入，這句只是保險。
 
 **Q：我想改某條規則？**
 直接對模型說，它會走 40 號檔流程（備份→改→留變更紀錄→兩側同步）。安全紅線類它會反過來要你確認，這是設計好的。
