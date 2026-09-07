@@ -31,7 +31,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 部署：macOS `bash <repo>/setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File <repo>\setup\install.ps1`。
 - 只想看有沒有漂移（不動檔案）：同上加 `check`（macOS `install.sh check`／Windows `-Mode check`）。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
-- 完整對帳（含第三方 skills/plugins 與 settings 共用項）→ `/ai-global`。只說「檢查／對帳」時它只做唯讀。
+- `/ai-global` skill：`check`（唯讀對帳）／`sync`（pull＋部署＋對帳）／`deploy`／`govcheck`／`install <name>`；不帶參數會列選單。
 - 改了制度檔或 router → 在 `<repo>` 跑 `python setup/check_governance.py`（節次對齊、前綴、路由、連結）。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）

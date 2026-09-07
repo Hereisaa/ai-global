@@ -51,7 +51,7 @@ setup/
 
 ## 給 AI agent 的指引（讀到這裡的模型，照此執行）
 
-**Claude Code 已部署過的機器**：直接用 `/ai-global` skill，它涵蓋首次部署、更新、check 裁決、manifest 與 settings 對帳。
+**Claude Code 已部署過的機器**：直接用 `/ai-global` skill——`check`（唯讀對帳）、`sync`（pull → 部署 → 對帳）、`deploy`（首次／重新部署）、`govcheck`（制度靜態檢查）、`install <name>`（補裝一項）；不帶參數會列選單。
 
 **全新機器（skill 還不存在）或 Codex**，依序執行：
 1. 判斷 OS，跑對應腳本（冪等，可重複執行；不刪檔，被取代的既有檔移入 `~/.ai-trash/`）：
