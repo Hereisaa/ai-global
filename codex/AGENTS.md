@@ -22,7 +22,7 @@
 | GitHub 專案 | `~/Developer/GitHub/` | `D:\GitHub\`（Git Bash 下 `/d/GitHub/`） |
 | 家目錄 | `/Users/<user>` | `C:\Users\<user>`（Git Bash 下 `/c/Users/<user>`） |
 
-- 寫路徑一律用兩平台都成立的 `$HOME` 相對路徑，不要寫死機器路徑：`~/.ai-global/`（制度與 manifest 部署端）、`~/.claude/`、`~/.codex/`、`~/Developer/temp/trash/`（安全刪除暫存區）。
+- 寫路徑一律用兩平台都成立的 `$HOME` 相對路徑，不要寫死機器路徑：`~/.ai-global/`（制度與 manifest 部署端）、`~/.claude/`、`~/.codex/`、`~/.ai-trash/`（安全刪除暫存區）。
 - 進入專案先讀該專案根目錄的 `AGENTS.md` 與 `CLAUDE.md`（若存在）。
 
 ## 全域設定要改／要同步時
@@ -41,7 +41,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 程式碼變更類回覆依序輸出：1) 變更摘要（改了什麼、為什麼、解決什麼問題，高層次條列）2) 架構重點與影響（選填、簡短）3) 乾淨可直接上線的程式碼或 diff；省略基礎語法與逐行細節，聚焦行為與架構影響。
 
 ## 安全紅線（違反即事故）
-1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（含 PowerShell `Remove-Item`）。刪除一律 `mv`／`Move-Item` 到 `~/Developer/temp/trash/` 並加時間戳。完整流程與例外 → `~/.ai-global/governance/50-safety.md`。
+1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（含 PowerShell `Remove-Item`）。刪除一律 `mv`／`Move-Item` 到 `~/.ai-trash/` 並加時間戳。完整流程與例外 → `~/.ai-global/governance/50-safety.md`。
 2. 不可逆或對外的動作（force push、刪遠端分支、對外發布、寄送訊息）先向使用者確認。
 3. `.env`、金鑰、憑證：不貼進回覆、不 commit、不傳外部服務。
 
@@ -66,3 +66,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-08-16 新增「工程開發與輸出格式」節，完整版在 `80-engineering.md`（Fable 5，應使用者要求）
 - 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「全域設定要改／要同步時」節（Opus 5，應使用者要求）
+- 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`（Opus 5，應使用者要求）

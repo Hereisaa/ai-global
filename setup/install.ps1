@@ -18,7 +18,7 @@ $Repo   = Split-Path -Parent $PSScriptRoot
 $H      = $env:USERPROFILE
 $Global = Join-Path $H ".ai-global"
 $State  = Join-Path $Global ".deploy-state.json"
-$Trash  = Join-Path $H ("Developer\temp\trash\ai-global-deploy-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+$Trash  = Join-Path $H (".ai-trash\ai-global-deploy-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 $script:Fail = 0
 
 # Commit this machine was last deployed from. Lets check tell "the repo moved

@@ -19,7 +19,7 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-install}"
 GLOBAL="$HOME/.ai-global"
 STATE="$GLOBAL/.deploy-state.json"
-TRASH="$HOME/Developer/temp/trash/ai-global-deploy-$(date +%Y%m%d-%H%M%S)"
+TRASH="$HOME/.ai-trash/ai-global-deploy-$(date +%Y%m%d-%H%M%S)"
 FAIL=0
 
 case "$MODE" in

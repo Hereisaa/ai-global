@@ -19,7 +19,7 @@
 - 寫路徑一律用這些**兩平台都成立的 `$HOME` 相對路徑**，不要寫死機器路徑：
   - `~/.ai-global/`：制度檔與 manifest 的部署端
   - `~/.claude/`、`~/.codex/`：兩個工具的全域設定
-  - `~/Developer/temp/trash/`：安全刪除的暫存區
+  - `~/.ai-trash/`：安全刪除的暫存區
 - 記憶體回收自動化兩台都已就位（macOS `cleanup-orphans.sh`＋launchd agent `com.claude.orphan-cleanup`；Windows `cleanup-orphans.ps1`＋排程工作 `ClaudeCodeOrphanCleanup`。皆為 SessionEnd hook＋每 2h；絕不殺 claude 主程序、跳過 remote-control、跳過 launchctl 受管服務）。使用者回報記憶體爆時先看 `~/.claude/logs/cleanup.log`，勿重複造輪子；詳見 ai-global README 對應平台節。
 - 進入專案先讀該專案根目錄的 `CLAUDE.md` 與 `AGENTS.md`（若存在）。
 
@@ -52,7 +52,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 程式碼變更類回覆依序輸出：1) 變更摘要（改了什麼、為什麼、解決什麼問題，高層次條列）2) 架構重點與影響（選填、簡短）3) 乾淨可直接上線的程式碼或 diff；省略基礎語法與逐行細節，聚焦行為與架構影響。
 
 ## 安全紅線（違反即事故，無例外時不得便宜行事）
-1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（`os.remove`、`fs.unlink`、PowerShell `Remove-Item` 等）。刪除一律 `mv`／`Move-Item` 到 `~/Developer/temp/trash/` 並加時間戳。完整流程與例外清單 → 讀 `~/.ai-global/governance/50-safety.md`。
+1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（`os.remove`、`fs.unlink`、PowerShell `Remove-Item` 等）。刪除一律 `mv`／`Move-Item` 到 `~/.ai-trash/` 並加時間戳。完整流程與例外清單 → 讀 `~/.ai-global/governance/50-safety.md`。
 2. 不可逆或對外的動作（force push、刪遠端分支、對外發布、寄送訊息）先向使用者確認。
 3. `.env`、金鑰、憑證：不貼進回覆、不 commit、不傳給外部服務。
 
@@ -85,3 +85,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-08-28 環境節新增 Windows 記憶體回收自動化備忘（Fable 5，應使用者要求）
 - 2026-08-28 記憶體回收自動化補上 macOS 版（Opus 5）
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「本檔的身分與改法」「全域設定要改／要同步時」兩節（Opus 5，應使用者要求）
+- 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`；`~/Developer` 是 macOS 形狀的路徑，不該在 Windows 上被建出來（Opus 5，應使用者要求）

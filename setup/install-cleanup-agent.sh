@@ -27,7 +27,7 @@ domain="gui/$(id -u)"
 if [ "$UNINSTALL" = 1 ]; then
   launchctl bootout "$domain/$LABEL" 2>/dev/null || true
   if [ -f "$PLIST" ]; then
-    trash="$HOME/Developer/temp/trash"
+    trash="$HOME/.ai-trash"
     mkdir -p "$trash"
     mv "$PLIST" "$trash/$LABEL.plist.$(date '+%Y%m%d-%H%M%S')"
   fi

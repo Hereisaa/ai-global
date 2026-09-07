@@ -33,7 +33,7 @@ description: 對帳 ai-global 倉庫與本機 AI 全域環境：git pull、用�
 | `EDITED` | 部署端被人**在 repo 外**改過 | **停下來問使用者**，見下 |
 | `EXTRA` | 部署端有 repo 已移除的檔 | 跑 install（舊檔進 trash） |
 
-`EDITED` 是唯一不能自動處理的：先用 `git diff --no-index <repo>/<對應檔> <部署端檔>` 把差異列給使用者，問「這些改動要回寫進 repo（我幫你搬回 clone 再 commit），還是丟掉改回 repo 版本？」。丟掉也不會真的消失——install 會把舊檔放進 `~/Developer/temp/trash/`。
+`EDITED` 是唯一不能自動處理的：先用 `git diff --no-index <repo>/<對應檔> <部署端檔>` 把差異列給使用者，問「這些改動要回寫進 repo（我幫你搬回 clone 再 commit），還是丟掉改回 repo 版本？」。丟掉也不會真的消失——install 會把舊檔放進 `~/.ai-trash/`。
 
 裁決完再跑一次 install（不帶 check 參數），然後重跑 check 確認全部 `OK`。
 

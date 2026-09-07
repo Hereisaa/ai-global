@@ -7,25 +7,25 @@
 
 **禁止**：`rm`、`rm -rf`、`rmdir`，以及任何程式化刪除（Python `os.remove()`、Node `fs.unlinkSync()` 等）——它們全部繞過垃圾桶，直接從 inode 移除，未 commit 的檔案將永久消失。
 
-**正確做法**：`mv` 到 `~/Developer/temp/trash/` 暫存，由使用者事後確認再真正清除。
+**正確做法**：`mv` 到 `~/.ai-trash/` 暫存，由使用者事後確認再真正清除。
 
 ### 操作流程
 ```bash
 # 1. 確保 trash 存在
-mkdir -p ~/Developer/temp/trash
+mkdir -p ~/.ai-trash
 
 # 2. 單檔：加時間戳避免衝突
-mv src/old_button.tsx ~/Developer/temp/trash/old_button.tsx.$(date +%Y%m%d-%H%M%S)
+mv src/old_button.tsx ~/.ai-trash/old_button.tsx.$(date +%Y%m%d-%H%M%S)
 
 # 3. 批次：先開當次子資料夾再整批移入
-BATCH="$HOME/Developer/temp/trash/cleanup-$(date +%Y%m%d-%H%M%S)"
+BATCH="$HOME/.ai-trash/cleanup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BATCH"
 mv file1.txt old_dir/ "$BATCH/"
 ```
 
 Windows PowerShell 等效寫法（**不要用 `Remove-Item`**）：
 ```powershell
-$Batch = Join-Path $env:USERPROFILE ("Developer\temp\trash\cleanup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+$Batch = Join-Path $env:USERPROFILE (".ai-trash\cleanup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 New-Item -ItemType Directory -Force -Path $Batch | Out-Null
 Move-Item -LiteralPath .\file1.txt, .\old_dir -Destination $Batch
 ```
@@ -60,3 +60,4 @@ Git 只能救回已 commit 的追蹤檔。未 commit 新檔、`.gitignore` 內�
 
 ## 變更紀錄
 - 2026-07-03 建檔（Fable 5）
+- 2026-09-07 trash 路徑改為 `~/.ai-trash/`；補上 PowerShell 版流程與 Windows 系統暫存例外（Opus 5，應使用者要求）

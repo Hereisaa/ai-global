@@ -31,7 +31,7 @@
 ## 給 AI agent 的指引（讀到這裡的模型，照此執行）
 
 **如果你被要求「設置／接上這台機器」，依序執行**：
-1. 判斷 OS，跑對應腳本（冪等，可重複執行；不刪檔，被取代的既有檔移入 `~/Developer/temp/trash/`）：
+1. 判斷 OS，跑對應腳本（冪等，可重複執行；不刪檔，被取代的既有檔移入 `~/.ai-trash/`）：
    - macOS/Linux：`bash setup/install.sh`
    - Windows：`powershell -ExecutionPolicy Bypass -File setup\install.ps1`
 2. 照 `manifest/skills.json` 補裝第三方能力：`type: plugin` 引導使用者用 `/plugin` 安裝；`type: skill` 從 `source` 標的 GitHub repo 抓對應目錄放入 `~/.claude/skills/<name>/`；`type: command` 放入 `target` 路徑。
@@ -43,7 +43,7 @@
 **紅線（對 agent 強制）**：
 - 修改本 repo 內容後必須 `git commit && git push`，否則另一台機器拿不到。
 - **不要直接編輯部署端**（`~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md`、`~/.ai-global/**`）。改 clone 內的對應檔，再部署。
-- 禁止 `rm`／程式化刪除；移除一律 `mv` 進 `~/Developer/temp/trash/` 加時間戳。
+- 禁止 `rm`／程式化刪除；移除一律 `mv` 進 `~/.ai-trash/` 加時間戳。
 - 任何憑證（`.credentials.json`、`auth.json`、`.env*`、API key）不得進本 repo；commit 前自查。
 - 制度檔（`governance/`）的修改要先讀 `governance/40-maintenance.md`（備份、變更紀錄、權限分級）。
 
