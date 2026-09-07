@@ -81,3 +81,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-07 與 CLAUDE.md 做對等稽核：補上記憶體回收備忘、`/ai-global`（Codex 跑不了的適配寫法）、多 session 並行專節、制度總覽路由、「不要編輯部署端」的完整後果；節次順序對齊 CLAUDE.md 以利日後比對（Opus 5，應使用者要求）
 - 2026-09-07 修正照抄錯誤：worktree／分支前綴從 `claude/<主題>` 改為 `codex/<主題>`（前綴跟著工具走）；`30-templates.md` 的派工對象改為不預設有子代理機制（Opus 5，使用者指出）
 - 2026-09-07 `sync-check` skill 改名為 `ai-global`；`manifest/` 不再部署到 `~/.ai-global`（Fable 5.1，應使用者要求）
+- 2026-09-07 部署狀態改記檔案雜湊（`files`）與管理清單（`managed`）；`~/.ai-global` 頂層只允許 governance 與 state（Fable 5.1）

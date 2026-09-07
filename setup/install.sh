@@ -138,6 +138,22 @@ echo "target: $GLOBAL + ~/.claude + ~/.codex"
 echo
 
 put_dir "governance"            "$GLOBAL/governance"
+
+# ~/.ai-global is owned by this script outright, so anything at its top level
+# that this version does not deploy is a leftover from an older layout.
+if [ -d "$GLOBAL" ]; then
+  for e in "$GLOBAL"/* "$GLOBAL"/.[!.]*; do
+    [ -e "$e" ] || [ -L "$e" ] || continue
+    case "$(basename "$e")" in governance|.deploy-state.json) continue ;; esac
+    if [ "$MODE" = check ]; then
+      echo "EXTRA   $e - no longer deployed here"; FAIL=1
+    else
+      backup "$e"
+      echo "DROP    $e -> trash"
+    fi
+  done
+fi
+
 put_dir "claude/hooks"          "$HOME/.claude/hooks"
 put     "claude/CLAUDE.md"      "$HOME/.claude/CLAUDE.md"
 put     "claude/statusline.sh"  "$HOME/.claude/statusline.sh"

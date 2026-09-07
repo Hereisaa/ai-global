@@ -90,3 +90,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`；`~/Developer` 是 macOS 形狀的路徑，不該在 Windows 上被建出來（Opus 5，應使用者要求）
 - 2026-09-07 與 AGENTS.md 做對等稽核：分支前綴改為明示「跟著工具走」（`claude/` vs `codex/`），Cowork 節加上兩個 router 的對等契約與常見照抄錯誤（Opus 5，應使用者要求）
 - 2026-09-07 `sync-check` skill 改名為 `ai-global` 並擴充為完整生命週期（首次部署／更新／裁決／對帳）；`manifest/` 不再部署到 `~/.ai-global`（只有 skill 讀，直接讀 clone）（Fable 5.1，應使用者要求）
+- 2026-09-07 部署狀態改記檔案雜湊（`files`）與管理清單（`managed`）：髒工作樹部署後仍正確判 BEHIND、改名的 skill 會自動收進 trash；`~/.ai-global` 頂層只允許 governance 與 state（Fable 5.1）

@@ -174,6 +174,17 @@ Write-Host "target: $Global + $H\.claude + $H\.codex"
 Write-Host ""
 
 PutDir "governance"           "$Global\governance"
+
+# ~/.ai-global is owned by this script outright, so anything at its top level
+# that this version does not deploy is a leftover from an older layout.
+if ([System.IO.Directory]::Exists($Global)) {
+  foreach ($e in Get-ChildItem -LiteralPath $Global -Force) {
+    if ($e.Name -in @("governance", ".deploy-state.json")) { continue }
+    if ($Mode -eq "check") { Write-Host "EXTRA   $($e.FullName) - no longer deployed here"; $script:Fail = 1 }
+    else { Move-ToTrash $e.FullName; Write-Host "DROP    $($e.FullName) -> trash" }
+  }
+}
+
 PutDir "claude/hooks"         "$H\.claude\hooks"
 Put    "claude/CLAUDE.md"     "$H\.claude\CLAUDE.md"
 Put    "claude/statusline.sh" "$H\.claude\statusline.sh"
