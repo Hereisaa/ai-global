@@ -49,7 +49,7 @@
   },
   "codex_config": {
     "_file": "~/.codex/config.toml",
-    "model_reasoning_effort": "ultra",
+    "_note": "model / model_reasoning_effort are machine-local by decision (2026-09-07); only personality is shared",
     "personality": "pragmatic"
   }
 }
