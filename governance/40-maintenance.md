@@ -54,7 +54,7 @@
 
 `~/.claude/CLAUDE.md` 與 `~/.codex/AGENTS.md` 是同一套制度的兩個 router。改了一邊的「安全紅線、優先序、路由清單」就必須同步改另一邊；兩邊允許不同的只有 harness 特有內容（skills 清單、工具名）。發現兩邊漂移：以本目錄的制度檔為準修齊。
 
-**跨機器同步**：本目錄（`~/.ai-global/governance/`）是 ai-global repo 部署出來的**實體副本**，不是連結；正本在 clone 內的 `governance/`（clone 路徑見 `~/.ai-global/.deploy-state.json` 的 `source_repo`）。改制度檔要改 clone 內的正本，再跑部署腳本（macOS `bash setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1`），最後 `git commit && git push`。在另一台機器開工前 → `git pull` 後跑一次 `install.sh check`（Windows `-Mode check`），或直接 `/sync-check`。**直接改本目錄的檔**會在下次 check 被標成 `EDITED`，並在下次部署時被覆蓋（舊檔進 trash）。git 歷史是 `backups/` 之外的第二層回滾機制，備份流程照舊。
+**跨機器同步**：本目錄（`~/.ai-global/governance/`）是 ai-global repo 部署出來的**實體副本**，不是連結；正本在 clone 內的 `governance/`（clone 路徑見 `~/.ai-global/.deploy-state.json` 的 `source_repo`）。改制度檔要改 clone 內的正本，再跑部署腳本（macOS `bash setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1`），最後 `git commit && git push`。在另一台機器開工前 → `git pull` 後跑一次 `install.sh check`（Windows `-Mode check`），或直接 `/ai-global`。**直接改本目錄的檔**會在下次 check 被標成 `EDITED`，並在下次部署時被覆蓋（舊檔進 trash）。git 歷史是 `backups/` 之外的第二層回滾機制，備份流程照舊。
 
 ## 變更紀錄格式（各制度檔底部）
 

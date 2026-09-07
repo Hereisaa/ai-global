@@ -13,7 +13,6 @@
         ▼
 ~/.ai-global/                ← 機器上的部署端，兩平台同一個路徑
   ├── governance/            ← 制度規則 SSOT，兩個 router 都指向這裡
-  ├── manifest/
   └── .deploy-state.json     ← 記著這台是從哪個 clone、哪個 commit 部署的
 ~/.claude/CLAUDE.md          ← 實體檔案（Claude Code / Cowork 讀）
 ~/.codex/AGENTS.md           ← 實體檔案（Codex 讀）
@@ -36,7 +35,7 @@
    - Windows：`powershell -ExecutionPolicy Bypass -File setup\install.ps1`
 2. 照 `manifest/skills.json` 補裝第三方能力：`type: plugin` 引導使用者用 `/plugin` 安裝；`type: skill` 從 `source` 標的 GitHub repo 抓對應目錄放入 `~/.claude/skills/<name>/`；`type: command` 放入 `target` 路徑。
 3. 照 `manifest/settings.json` 核對本機 `~/.claude/settings.json` 與 `~/.codex/config.toml` 的共用 key，缺漏回報使用者裁決後補上。
-4. 完成後逐項回報 PASS/FAIL 附證據。（Claude Code 裝好後，第 2–3 步可直接用 `/sync-check` skill 執行。）
+4. 完成後逐項回報 PASS/FAIL 附證據。（Claude Code 裝好後，第 2–3 步可直接用 `/ai-global` skill 執行。）
 
 **如果你被要求「同步／對帳」**：`git pull --ff-only`，再跑 check（macOS `bash setup/install.sh check`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1 -Mode check`），照下表處置，最後做上面第 2–4 步。
 
@@ -52,7 +51,6 @@
 | 倉庫路徑 | 部署位置 | 備註 |
 |---|---|---|
 | `governance/` | `~/.ai-global/governance/` | 制度規則 SSOT；`backups/` 不部署 |
-| `manifest/` | `~/.ai-global/manifest/` | 給 `/sync-check` 讀 |
 | `claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Claude Code / Cowork 全域指令 |
 | `codex/AGENTS.md` | `~/.codex/AGENTS.md` | Codex 全域指令 |
 | `claude/statusline.sh` | `~/.claude/statusline.sh` | |
@@ -61,7 +59,7 @@
 | `claude/commands/<name>` | `~/.claude/commands/<name>` | 逐一部署 |
 | `claude/agents/<name>` | `~/.claude/agents/<name>` | 逐一部署 |
 
-**不部署、只對帳**：`~/.claude/settings.json` 與 `~/.codex/config.toml`——這兩個檔工具自己會回寫，共用基準記在 `manifest/settings.json`。
+**不部署、只對帳**：`~/.claude/settings.json` 與 `~/.codex/config.toml`——這兩個檔工具自己會回寫，共用基準記在 `manifest/settings.json`。`manifest/` 整個目錄只留在 clone 裡給 `/ai-global` 讀，不部署。
 **永不進倉庫**：`settings.local.json`、Codex 的機器路徑設定、任何憑證。
 
 ## check 的狀態碼
@@ -121,12 +119,12 @@ powershell -ExecutionPolicy Bypass -File D:\GitHub\ai-global\setup\install.ps1 -
 
 ### 裝完之後（兩平台相同）
 
-開一個 Claude Code session，執行 `/sync-check`：照 manifest 補裝第三方 skills/plugins、核對 settings 共用項。
+開一個 Claude Code session，執行 `/ai-global`：照 manifest 補裝第三方 skills/plugins、核對 settings 共用項。
 
 ## 日常工作流
 
 - 改了 CLAUDE.md／制度檔／自製 skill → 在 clone 內改 → 跑 install 部署 → `git commit && git push`。
-- 換到另一台開工前 → `git pull` → 跑 `check` → 需要就 install。（或直接 `/sync-check`，它包含 pull、check 與 manifest 對帳。）
+- 換到另一台開工前 → `git pull` → 跑 `check` → 需要就 install。（或直接 `/ai-global`，它包含 pull、check 與 manifest 對帳。）
 - 裝了新的第三方 skill 且想要兩台都有 → 把它記進 `manifest/skills.json` 再 push。
 - 制度檔的修改規範（備份、變更紀錄、權限分級）照 `governance/40-maintenance.md`；git 歷史是第二層回滾機制。
 

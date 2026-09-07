@@ -6,7 +6,6 @@
 # machine with a dangling global config.
 #
 #   repo\governance   -> %USERPROFILE%\.ai-global\governance   (rules SSOT)
-#   repo\manifest     -> %USERPROFILE%\.ai-global\manifest
 #   repo\claude\*     -> %USERPROFILE%\.claude\*
 #   repo\codex\*      -> %USERPROFILE%\.codex\*
 #
@@ -21,11 +20,38 @@ $State  = Join-Path $Global ".deploy-state.json"
 $Trash  = Join-Path $H (".ai-trash\ai-global-deploy-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
 $script:Fail = 0
 
-# Commit this machine was last deployed from. Lets check tell "the repo moved
-# on" (safe to update) apart from "someone edited the deployed copy" (review).
-$PrevCommit = ""
+# State from the previous deploy on this machine (~/.ai-global/.deploy-state.json):
+#   files    blob hash of every file as deployed. A deployed file that still
+#            matches its recorded hash was not touched since -> BEHIND (safe to
+#            update); anything else -> EDITED (needs a human). Hashes rather
+#            than a commit, so deploying from a dirty worktree stays accurate.
+#   managed  repo-relative paths of the item-level deploys (skills, commands,
+#            agents). An item the repo no longer has must be removed, or the
+#            tool keeps loading a skill that no longer exists upstream.
+#   commit   informational only.
+# Parsed with regex rather than ConvertFrom-Json: cmdlet autoloading is
+# unreliable when PowerShell is launched from Git Bash.
+$PrevCommit  = ""
+$PrevManaged = @()
+$script:StateRaw = ""
 if (Test-Path -LiteralPath $State) {
-  try { $PrevCommit = (Get-Content -LiteralPath $State -Raw | ConvertFrom-Json).commit } catch { $PrevCommit = "" }
+  $script:StateRaw = [System.IO.File]::ReadAllText($State)
+  $m = [regex]::Match($script:StateRaw, '"commit"\s*:\s*"([^"]*)"')
+  if ($m.Success) { $PrevCommit = $m.Groups[1].Value }
+  # Scope to the managed array: the files map below also has "claude/..." keys.
+  $mm = [regex]::Match($script:StateRaw, '"managed"\s*:\s*\[(.*?)\]', 'Singleline')
+  if ($mm.Success) {
+    $PrevManaged = @([regex]::Matches($mm.Groups[1].Value, '"(claude/[^"]*)"') | ForEach-Object { $_.Groups[1].Value })
+  }
+}
+$script:Managed = New-Object System.Collections.Generic.List[string]
+$script:Files   = New-Object System.Collections.Generic.List[string]
+
+function Get-PrevHash($Rel) {
+  if (-not $script:StateRaw) { return "" }
+  $m = [regex]::Match($script:StateRaw, '"' + [regex]::Escape($Rel) + '"\s*:\s*"([0-9a-f]+)"')
+  if ($m.Success) { return $m.Groups[1].Value }
+  return ""
 }
 
 # Get-Item -Force also returns dangling links, which Test-Path reports as absent.
@@ -74,10 +100,10 @@ function Get-Status($Rel, $Dst) {
   if ($item.LinkType) { return "STALE" }
   if (-not [System.IO.File]::Exists($item.FullName)) { return "EDITED" }
   if (Test-SameContent $src $Dst) { return "OK" }
-  if ($PrevCommit) {
-    $prevBlob = & git -C $Repo rev-parse "$($PrevCommit):$Rel" 2>$null
-    $dstBlob  = & git -C $Repo hash-object $Dst 2>$null
-    if ($prevBlob -and $prevBlob -eq $dstBlob) { return "BEHIND" }
+  $prev = Get-PrevHash $Rel
+  if ($prev) {
+    $dstBlob = & git -C $Repo hash-object $Dst 2>$null
+    if ($prev -eq $dstBlob) { return "BEHIND" }
   }
   return "EDITED"
 }
@@ -96,6 +122,8 @@ function Put($Rel, $Dst) {
     }
     return
   }
+  # Record what is deployed after this run, whether or not we had to copy.
+  $script:Files.Add($Rel + "|" + (& git -C $Repo hash-object $src))
   if ($st -eq "OK") { return }
   if ($st -eq "EDITED") { Write-Host "WARN    $Dst differed from the repo; the old copy goes to trash" }
   Move-ToTrash $Dst
@@ -107,11 +135,15 @@ function Put($Rel, $Dst) {
 function PutDir($Rel, $Dst) {
   $src = Join-Path $Repo $Rel
   if (-not (Test-Path -LiteralPath $src -PathType Container)) { Write-Host "SKIP    $Rel missing in repo"; return }
-  # A directory left as a junction by an older install must go first, otherwise
-  # every copy below would be written straight back into the repo.
   if ($Mode -eq "install") {
     $d = Get-Existing $Dst
+    # A directory left as a junction by an older install must go first, otherwise
+    # every copy below would be written straight back into the repo.
     if ($d -and $d.LinkType) { Move-ToTrash $Dst }
+    elseif ($d -and -not $d.PSIsContainer) {
+      Write-Host "WARN    $Dst is a file where a directory belongs; the old copy goes to trash"
+      Move-ToTrash $Dst
+    }
   }
   $srcRoot = (Resolve-Path -LiteralPath $src).Path
   $skip    = Join-Path $srcRoot "backups"
@@ -142,7 +174,6 @@ Write-Host "target: $Global + $H\.claude + $H\.codex"
 Write-Host ""
 
 PutDir "governance"           "$Global\governance"
-PutDir "manifest"             "$Global\manifest"
 PutDir "claude/hooks"         "$H\.claude\hooks"
 Put    "claude/CLAUDE.md"     "$H\.claude\CLAUDE.md"
 Put    "claude/statusline.sh" "$H\.claude\statusline.sh"
@@ -151,13 +182,23 @@ Put    "codex/AGENTS.md"      "$H\.codex\AGENTS.md"
 # Repo-owned skills/commands/agents are deployed item by item so third-party
 # installs keep coexisting in the same parent directories.
 Get-ChildItem -LiteralPath "$Repo\claude\skills" -Directory -ErrorAction SilentlyContinue |
-  ForEach-Object { PutDir "claude/skills/$($_.Name)" "$H\.claude\skills\$($_.Name)" }
+  ForEach-Object { PutDir "claude/skills/$($_.Name)" "$H\.claude\skills\$($_.Name)"; $script:Managed.Add("claude/skills/$($_.Name)") }
 Get-ChildItem -LiteralPath "$Repo\claude\commands" -File -ErrorAction SilentlyContinue |
   Where-Object Name -ne ".gitkeep" |
-  ForEach-Object { Put "claude/commands/$($_.Name)" "$H\.claude\commands\$($_.Name)" }
+  ForEach-Object { Put "claude/commands/$($_.Name)" "$H\.claude\commands\$($_.Name)"; $script:Managed.Add("claude/commands/$($_.Name)") }
 Get-ChildItem -LiteralPath "$Repo\claude\agents" -File -ErrorAction SilentlyContinue |
   Where-Object Name -ne ".gitkeep" |
-  ForEach-Object { Put "claude/agents/$($_.Name)" "$H\.claude\agents\$($_.Name)" }
+  ForEach-Object { Put "claude/agents/$($_.Name)" "$H\.claude\agents\$($_.Name)"; $script:Managed.Add("claude/agents/$($_.Name)") }
+
+# Items deployed last time that the repo no longer has (a renamed or removed
+# skill, command or agent).
+foreach ($rel in $PrevManaged) {
+  if (-not $rel -or $script:Managed.Contains($rel)) { continue }
+  $dst = Join-Path $H (".claude\" + $rel.Substring("claude/".Length).Replace('/', '\'))
+  if (-not (Get-Existing $dst)) { continue }
+  if ($Mode -eq "check") { Write-Host "EXTRA   $dst - no longer in repo"; $script:Fail = 1 }
+  else { Move-ToTrash $dst; Write-Host "DROP    $dst -> trash" }
+}
 
 $HeadCommit = (& git -C $Repo rev-parse HEAD 2>$null)
 if (-not $HeadCommit) { $HeadCommit = "unknown" }
@@ -184,18 +225,27 @@ $json = @(
   ('  "commit": "' + $HeadCommit + '",'),
   ('  "branch": "' + $Branch + '",'),
   ('  "deployed_at": "' + (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + '",'),
-  '  "platform": "Windows"',
+  '  "platform": "Windows",',
+  '  "managed": [',
+  (($script:Managed | ForEach-Object { '    "' + $_ + '"' }) -join ",`n"),
+  '  ],',
+  '  "files": {',
+  (($script:Files | ForEach-Object { $p = $_.Split('|', 2); '    "' + $p[0] + '": "' + $p[1] + '"' }) -join ",`n"),
+  '  }',
   '}'
 ) -join "`n"
 [System.IO.File]::WriteAllText($State, $json + "`n", (New-Object System.Text.UTF8Encoding $false))
 Write-Host "STATE   $State -> $($HeadCommit.Substring(0,9))"
 
 # Remind after a pull. Deliberately does not auto-deploy, so a pull can never
-# silently overwrite something that was edited on this machine.
+# silently overwrite something that was edited on this machine. post-merge
+# covers plain/ff pulls, post-rewrite covers `pull --rebase`.
 $hookDir = Join-Path $Repo ".git\hooks"
 if (Test-Path -LiteralPath $hookDir) {
-  $hook = "#!/bin/sh`necho 'ai-global: pull done -> run setup/install.ps1 -Mode check'`n"
-  [System.IO.File]::WriteAllText((Join-Path $hookDir "post-merge"), $hook, (New-Object System.Text.UTF8Encoding $false))
+  $utf8 = New-Object System.Text.UTF8Encoding $false
+  $msg  = "ai-global: pull done -> run setup/install.ps1 -Mode check (or /ai-global in Claude Code)"
+  [System.IO.File]::WriteAllText((Join-Path $hookDir "post-merge"),   "#!/bin/sh`necho '$msg'`n", $utf8)
+  [System.IO.File]::WriteAllText((Join-Path $hookDir "post-rewrite"), "#!/bin/sh`n[ `"`$1`" = rebase ] && echo '$msg'`nexit 0`n", $utf8)
 }
 
 if (Test-Path -LiteralPath $Trash) {

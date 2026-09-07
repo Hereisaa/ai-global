@@ -17,7 +17,7 @@
 | 家目錄 | `/Users/<user>` | `C:\Users\<user>`（Git Bash 下 `/c/Users/<user>`） |
 
 - 寫路徑一律用這些**兩平台都成立的 `$HOME` 相對路徑**，不要寫死機器路徑：
-  - `~/.ai-global/`：制度檔與 manifest 的部署端
+  - `~/.ai-global/`：制度檔的部署端
   - `~/.claude/`、`~/.codex/`：兩個工具的全域設定
   - `~/.ai-trash/`：安全刪除的暫存區
 - 記憶體回收自動化兩台都已就位（macOS `cleanup-orphans.sh`＋launchd agent `com.claude.orphan-cleanup`；Windows `cleanup-orphans.ps1`＋排程工作 `ClaudeCodeOrphanCleanup`。皆為 SessionEnd hook＋每 2h；絕不殺 claude 主程序、跳過 remote-control、跳過 launchctl 受管服務）。使用者回報記憶體爆時先看 `~/.claude/logs/cleanup.log`，勿重複造輪子；詳見 ai-global README 對應平台節。
@@ -30,7 +30,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 部署：macOS `bash <repo>/setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File <repo>\setup\install.ps1`。
 - 只想看有沒有漂移（不動檔案）：同上加 `check`（macOS `install.sh check`／Windows `-Mode check`）。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
-- 完整對帳（含第三方 skills/plugins 與 settings 共用項）→ `/sync-check`。
+- 完整對帳（含第三方 skills/plugins 與 settings 共用項）→ `/ai-global`。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
 - 我自己開 worktree／分支時一律用 **`claude/<主題>`**（Codex 側用 `codex/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來）。系統自動生成的隨機字典名（`happy-snyder-98144c` 這種）開工前提議使用者改名，**不要自行 rename**——session metadata 會對不上。
@@ -78,7 +78,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 ## Cowork / 多端一致
 本檔是 Claude Code CLI 與 Cowork（桌面版）之間使用者偏好的單一事實來源；Codex 側的對應檔為 `~/.codex/AGENTS.md`，兩者都只是 router，實質規則以 `~/.ai-global/governance/` 為準。
 
-兩個 router **內容應保持對等，節次順序也刻意對齊**，方便逐節比對。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`claude/` vs `codex/`）、`/sync-check` 只有 Claude Code 跑得動、子代理機制 Codex 未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
+兩個 router **內容應保持對等，節次順序也刻意對齊**，方便逐節比對。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`claude/` vs `codex/`）、`/ai-global` 只有 Claude Code 跑得動、子代理機制 Codex 未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
 
 ## 變更紀錄
 - 2026-07-31 新增「多 session 並行」節（Opus 5）
@@ -89,3 +89,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「本檔的身分與改法」「全域設定要改／要同步時」兩節（Opus 5，應使用者要求）
 - 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`；`~/Developer` 是 macOS 形狀的路徑，不該在 Windows 上被建出來（Opus 5，應使用者要求）
 - 2026-09-07 與 AGENTS.md 做對等稽核：分支前綴改為明示「跟著工具走」（`claude/` vs `codex/`），Cowork 節加上兩個 router 的對等契約與常見照抄錯誤（Opus 5，應使用者要求）
+- 2026-09-07 `sync-check` skill 改名為 `ai-global` 並擴充為完整生命週期（首次部署／更新／裁決／對帳）；`manifest/` 不再部署到 `~/.ai-global`（只有 skill 讀，直接讀 clone）（Fable 5.1，應使用者要求）

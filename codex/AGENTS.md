@@ -5,7 +5,7 @@
 - 實質規則的單一事實來源（SSOT）：`~/.ai-global/governance/`（與 Claude Code 共用）。本檔只放紅線與路由；兩邊若不一致，以 governance 目錄為準。
 - 版本正本：ai-global git repo。本機 clone 的位置寫在 `~/.ai-global/.deploy-state.json` 的 `source_repo`。
 - **不要直接編輯 `~/.codex/AGENTS.md`、`~/.claude/CLAUDE.md` 或 `~/.ai-global/` 底下任何檔案。** 正確流程：改 clone 內對應檔 → 跑部署腳本 → `git commit && git push`。直接改部署端會在下次 check 被標成 `EDITED`，且下次部署時被覆蓋（舊檔進 `~/.ai-trash/`）。
-- 本檔與 Claude 側的 `~/.claude/CLAUDE.md` 是同一套規則的兩個 router，**內容應保持對等，節次順序也刻意對齊**。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`codex/` vs `claude/`）、`/sync-check` 只有 Claude Code 跑得動、子代理機制本環境未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
+- 本檔與 Claude 側的 `~/.claude/CLAUDE.md` 是同一套規則的兩個 router，**內容應保持對等，節次順序也刻意對齊**。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`codex/` vs `claude/`）、`/ai-global` 只有 Claude Code 跑得動、子代理機制本環境未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
 
 ## 環境
 以實際偵測到的 OS 為準，不要假設。
@@ -17,7 +17,7 @@
 | GitHub 專案 | `~/Developer/GitHub/` | `D:\GitHub\`（Git Bash 下 `/d/GitHub/`） |
 | 家目錄 | `/Users/<user>` | `C:\Users\<user>`（Git Bash 下 `/c/Users/<user>`） |
 
-- 寫路徑一律用兩平台都成立的 `$HOME` 相對路徑，不要寫死機器路徑：`~/.ai-global/`（制度與 manifest 部署端）、`~/.claude/`、`~/.codex/`、`~/.ai-trash/`（安全刪除暫存區）。
+- 寫路徑一律用兩平台都成立的 `$HOME` 相對路徑，不要寫死機器路徑：`~/.ai-global/`（制度檔部署端）、`~/.claude/`、`~/.codex/`、`~/.ai-trash/`（安全刪除暫存區）。
 - 記憶體回收自動化兩台都已就位（macOS `cleanup-orphans.sh`＋launchd agent `com.claude.orphan-cleanup`；Windows `cleanup-orphans.ps1`＋排程工作 `ClaudeCodeOrphanCleanup`；皆為 SessionEnd hook＋每 2h，絕不殺主程序、跳過 remote-control）。那套掛在 Claude Code 側，但使用者回報記憶體爆時**不分工具都先看 `~/.claude/logs/cleanup.log`**，勿重複造輪子；詳見 ai-global README 對應平台節。
 - 進入專案先讀該專案根目錄的 `AGENTS.md` 與 `CLAUDE.md`（若存在）。
 
@@ -28,7 +28,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 部署：macOS `bash <repo>/setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File <repo>\setup\install.ps1`。
 - 只想看有沒有漂移（不動檔案）：同上加 `check`（macOS `install.sh check`／Windows `-Mode check`）。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
-- 完整對帳（含第三方 skills/plugins 與 settings 共用項）要用 `/sync-check`；那是 Claude Code 的 skill，**Codex 這側跑不了**，請使用者去 Claude Code 開一個 session 執行。
+- 完整對帳（含第三方 skills/plugins 與 settings 共用項）要用 `/ai-global`；那是 Claude Code 的 skill，**Codex 這側跑不了**，請使用者去 Claude Code 開一個 session 執行。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
 - 開 worktree／分支一律用 **`codex/<主題>`**（Claude Code 側用 `claude/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來，別照抄對面的前綴）。系統自動生成的隨機名開工前提議使用者改名，**不要自行 rename**——session metadata 會對不上。
@@ -78,5 +78,6 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「全域設定要改／要同步時」節（Opus 5，應使用者要求）
 - 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`（Opus 5，應使用者要求）
-- 2026-09-07 與 CLAUDE.md 做對等稽核：補上記憶體回收備忘、`/sync-check`（Codex 跑不了的適配寫法）、多 session 並行專節、制度總覽路由、「不要編輯部署端」的完整後果；節次順序對齊 CLAUDE.md 以利日後比對（Opus 5，應使用者要求）
+- 2026-09-07 與 CLAUDE.md 做對等稽核：補上記憶體回收備忘、`/ai-global`（Codex 跑不了的適配寫法）、多 session 並行專節、制度總覽路由、「不要編輯部署端」的完整後果；節次順序對齊 CLAUDE.md 以利日後比對（Opus 5，應使用者要求）
 - 2026-09-07 修正照抄錯誤：worktree／分支前綴從 `claude/<主題>` 改為 `codex/<主題>`（前綴跟著工具走）；`30-templates.md` 的派工對象改為不預設有子代理機制（Opus 5，使用者指出）
+- 2026-09-07 `sync-check` skill 改名為 `ai-global`；`manifest/` 不再部署到 `~/.ai-global`（Fable 5.1，應使用者要求）

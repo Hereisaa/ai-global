@@ -1,5 +1,5 @@
 {
-  "_readme": "Third-party capabilities expected on every machine. Not stored in this repo because their upstream is alive; reinstall from source. Reconcile with /sync-check. Types: skill = dir under ~/.claude/skills/; plugin = Claude Code plugin; command = file under ~/.claude/commands/.",
+  "_readme": "Third-party capabilities expected on every machine. Not stored in this repo because their upstream is alive; reinstall from source. Reconcile with /ai-global. Types: skill = dir under ~/.claude/skills/; plugin = Claude Code plugin; command = file under ~/.claude/commands/.",
   "items": [
     { "name": "gsap-skills", "type": "plugin", "source": "marketplace github:greensock/gsap-skills", "license": "MIT", "note": "official set of 8 skills (core/timeline/scrolltrigger/plugins/react/frameworks/performance/utils)", "version": "1.0.0" },
     { "name": "beautiful-article", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "0.1.0" },

@@ -6,7 +6,6 @@
 # clone can never leave the machine with a dangling global config.
 #
 #   repo/governance   -> ~/.ai-global/governance   (rules SSOT the routers point at)
-#   repo/manifest     -> ~/.ai-global/manifest
 #   repo/claude/*     -> ~/.claude/*
 #   repo/codex/*      -> ~/.codex/*
 #
@@ -27,12 +26,28 @@ case "$MODE" in
   *) echo "usage: install.sh [install|check]" >&2; exit 2 ;;
 esac
 
-# Commit this machine was last deployed from. Lets check tell "the repo moved
-# on" (safe to update) apart from "someone edited the deployed copy" (review).
+# State from the previous deploy on this machine (~/.ai-global/.deploy-state.json):
+#   files    blob hash of every file as deployed. A deployed file that still
+#            matches its recorded hash was not touched since -> BEHIND (safe to
+#            update); anything else -> EDITED (needs a human). Hashes rather
+#            than a commit, so deploying from a dirty worktree stays accurate.
+#   managed  repo-relative paths of the item-level deploys (skills, commands,
+#            agents). An item the repo no longer has must be removed, or the
+#            tool keeps loading a skill that no longer exists upstream.
+#   commit   informational only.
 PREV_COMMIT=""
+PREV_MANAGED=""
 if [ -f "$STATE" ]; then
   PREV_COMMIT="$(sed -n 's/.*"commit"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$STATE" | head -1)"
+  PREV_MANAGED="$(sed -n '/"managed"/,/\]/p' "$STATE" | grep -o '"claude/[^"]*"' | tr -d '"' || true)"
 fi
+MANAGED=""
+FILES=""
+
+prev_hash() { # prev_hash <repo-rel> -> blob hash recorded at the last deploy, or ""
+  [ -f "$STATE" ] || return 0
+  grep -F "\"$1\":" "$STATE" | sed -n 's/.*:[[:space:]]*"\([0-9a-f]*\)".*/\1/p' | head -1
+}
 
 backup() { # backup <path> - never delete, park in trash keeping the structure
   local p="$1" label="${1#"$HOME"/}"
@@ -41,16 +56,16 @@ backup() { # backup <path> - never delete, park in trash keeping the structure
 }
 
 classify() { # classify <repo-rel> <dst> -> OK | MISSING | STALE | BEHIND | EDITED
-  local rel="$1" dst="$2" prev_blob dst_blob
+  local rel="$1" dst="$2" prev dst_blob
   # Nothing deployed is ever a link, so any link here is left over from an
   # older install - dangling or not.
   if [ -L "$dst" ]; then echo STALE; return; fi
   if [ ! -e "$dst" ]; then echo MISSING; return; fi
   if [ -f "$dst" ] && cmp -s "$REPO/$rel" "$dst"; then echo OK; return; fi
-  if [ -n "$PREV_COMMIT" ] && [ -f "$dst" ]; then
-    prev_blob="$(git -C "$REPO" rev-parse "$PREV_COMMIT:$rel" 2>/dev/null || true)"
+  if [ -f "$dst" ]; then
+    prev="$(prev_hash "$rel")"
     dst_blob="$(git -C "$REPO" hash-object "$dst" 2>/dev/null || true)"
-    if [ -n "$prev_blob" ] && [ "$prev_blob" = "$dst_blob" ]; then echo BEHIND; return; fi
+    if [ -n "$prev" ] && [ "$prev" = "$dst_blob" ]; then echo BEHIND; return; fi
   fi
   echo EDITED
 }
@@ -69,6 +84,8 @@ put() { # put <repo-rel> <dst> - deploy one file
     esac
     return
   fi
+  # Record what is deployed after this run, whether or not we had to copy.
+  FILES="$FILES"$'\n'"$rel|$(git -C "$REPO" hash-object "$REPO/$rel")"
   if [ "$st" = OK ]; then return; fi
   if [ "$st" = EDITED ]; then
     echo "WARN    $dst differed from the repo; the old copy goes to trash"
@@ -83,11 +100,16 @@ put() { # put <repo-rel> <dst> - deploy one file
 put_dir() { # put_dir <repo-rel-dir> <dst-dir> - mirror a repo-owned directory
   local rel="$1" dst="$2" f
   if [ ! -d "$REPO/$rel" ]; then echo "SKIP    $rel missing in repo"; return; fi
-  # A directory left as a symlink by an older install must go first, otherwise
-  # every copy below would be written straight back into the repo.
-  if [ "$MODE" != check ] && [ -L "$dst" ]; then
-    echo "UNLINK  $dst (link left by an older install)"
-    backup "$dst"
+  if [ "$MODE" != check ]; then
+    # A directory left as a symlink by an older install must go first, otherwise
+    # every copy below would be written straight back into the repo.
+    if [ -L "$dst" ]; then
+      echo "UNLINK  $dst (link left by an older install)"
+      backup "$dst"
+    elif [ -e "$dst" ] && [ ! -d "$dst" ]; then
+      echo "WARN    $dst is a file where a directory belongs; the old copy goes to trash"
+      backup "$dst"
+    fi
   fi
   while IFS= read -r f; do
     put "$rel/$f" "$dst/$f"
@@ -107,12 +129,15 @@ put_dir() { # put_dir <repo-rel-dir> <dst-dir> - mirror a repo-owned directory
   done < <(cd "$dst" && find . -type f | sed 's|^\./||' | sort)
 }
 
+manage() { # manage <repo-rel> - record an item-level deploy for the next run
+  MANAGED="$MANAGED"$'\n'"$1"
+}
+
 echo "repo:   $REPO"
 echo "target: $GLOBAL + ~/.claude + ~/.codex"
 echo
 
 put_dir "governance"            "$GLOBAL/governance"
-put_dir "manifest"              "$GLOBAL/manifest"
 put_dir "claude/hooks"          "$HOME/.claude/hooks"
 put     "claude/CLAUDE.md"      "$HOME/.claude/CLAUDE.md"
 put     "claude/statusline.sh"  "$HOME/.claude/statusline.sh"
@@ -124,19 +149,37 @@ for d in "$REPO"/claude/skills/*/; do
   [ -d "$d" ] || continue
   n="$(basename "$d")"
   put_dir "claude/skills/$n" "$HOME/.claude/skills/$n"
+  manage "claude/skills/$n"
 done
 for f in "$REPO"/claude/commands/*; do
   [ -f "$f" ] || continue
   n="$(basename "$f")"
   if [ "$n" = .gitkeep ]; then continue; fi
   put "claude/commands/$n" "$HOME/.claude/commands/$n"
+  manage "claude/commands/$n"
 done
 for f in "$REPO"/claude/agents/*; do
   [ -f "$f" ] || continue
   n="$(basename "$f")"
   if [ "$n" = .gitkeep ]; then continue; fi
   put "claude/agents/$n" "$HOME/.claude/agents/$n"
+  manage "claude/agents/$n"
 done
+
+# Items deployed last time that the repo no longer has (a renamed or removed
+# skill, command or agent).
+while IFS= read -r rel; do
+  [ -n "$rel" ] || continue
+  case $'\n'"$MANAGED"$'\n' in *$'\n'"$rel"$'\n'*) continue ;; esac
+  dst="$HOME/.claude/${rel#claude/}"
+  if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then continue; fi
+  if [ "$MODE" = check ]; then
+    echo "EXTRA   $dst - no longer in repo"; FAIL=1
+  else
+    backup "$dst"
+    echo "DROP    $dst -> trash"
+  fi
+done <<< "$PREV_MANAGED"
 
 HEAD_COMMIT="$(git -C "$REPO" rev-parse HEAD 2>/dev/null || echo unknown)"
 
@@ -158,6 +201,19 @@ if [ "$MODE" = check ]; then
   exit 0
 fi
 
+managed_json=""
+while IFS= read -r rel; do
+  [ -n "$rel" ] || continue
+  if [ -n "$managed_json" ]; then managed_json="$managed_json,"$'\n'; fi
+  managed_json="$managed_json    \"$rel\""
+done <<< "$MANAGED"
+files_json=""
+while IFS= read -r entry; do
+  [ -n "$entry" ] || continue
+  if [ -n "$files_json" ]; then files_json="$files_json,"$'\n'; fi
+  files_json="$files_json    \"${entry%%|*}\": \"${entry#*|}\""
+done <<< "$FILES"
+
 mkdir -p "$GLOBAL"
 cat > "$STATE" <<JSON
 {
@@ -165,19 +221,31 @@ cat > "$STATE" <<JSON
   "commit": "$HEAD_COMMIT",
   "branch": "$(git -C "$REPO" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)",
   "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-  "platform": "$(uname -s)"
+  "platform": "$(uname -s)",
+  "managed": [
+$managed_json
+  ],
+  "files": {
+$files_json
+  }
 }
 JSON
 echo "STATE   $STATE -> ${HEAD_COMMIT:0:9}"
 
 # Remind after a pull. Deliberately does not auto-deploy, so a pull can never
-# silently overwrite something that was edited on this machine.
+# silently overwrite something that was edited on this machine. post-merge
+# covers plain/ff pulls, post-rewrite covers `pull --rebase`.
 if [ -d "$REPO/.git/hooks" ]; then
   cat > "$REPO/.git/hooks/post-merge" <<'HOOK'
 #!/bin/sh
-echo "ai-global: pull 完成 -> 跑 setup/install.sh check 看全域部署要不要更新"
+echo "ai-global: pull done -> run setup/install.sh check (or /ai-global in Claude Code)"
 HOOK
-  chmod +x "$REPO/.git/hooks/post-merge"
+  cat > "$REPO/.git/hooks/post-rewrite" <<'HOOK'
+#!/bin/sh
+[ "$1" = rebase ] && echo "ai-global: pull --rebase done -> run setup/install.sh check (or /ai-global in Claude Code)"
+exit 0
+HOOK
+  chmod +x "$REPO/.git/hooks/post-merge" "$REPO/.git/hooks/post-rewrite"
 fi
 
 if [ -d "$TRASH" ]; then

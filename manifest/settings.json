@@ -1,8 +1,8 @@
 {
-  "_readme": "Expected shared keys in machine-local config files. These files are rewritten by the tools themselves, so they are never symlinked; /sync-check compares these keys and reports drift. Everything not listed here is machine-local by design.",
+  "_readme": "Expected shared keys in machine-local config files. These files are rewritten by the tools themselves, so they are never deployed; /ai-global compares these keys and reports drift. Everything not listed here is machine-local by design.",
   "claude_settings": {
     "_file": "~/.claude/settings.json",
-    "_note": "blocks below are authoritative shared config: sync-check compares deep-equal per block and applies the manifest version after user confirms",
+    "_note": "blocks below are authoritative shared config: ai-global compares deep-equal per block and applies the manifest version after user confirms",
     "permissions": {
       "defaultMode": "auto",
       "allow": [
