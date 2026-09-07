@@ -4,7 +4,7 @@
 - 你讀到的 `~/.claude/CLAUDE.md` 是**實體檔案**，由 ai-global repo 部署產生（不是連結，不會斷鏈）。
 - 實質規則的單一事實來源（SSOT）：`~/.ai-global/governance/`。本檔只放紅線與路由。
 - 版本正本：ai-global git repo。本機 clone 的位置寫在 `~/.ai-global/.deploy-state.json` 的 `source_repo`。
-- **不要直接編輯 `~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md` 或 `~/.ai-global/` 底下任何檔案。** 正確流程：改 clone 內對應檔 → 跑部署腳本 → `git commit && git push`。直接改部署端會在下次 check 被標成 `EDITED`，且下次部署時被覆蓋（舊檔進 trash）。
+- **不要直接編輯 `~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md` 或 `~/.ai-global/` 底下任何檔案。** 正確流程：改 clone 內對應檔 → 跑部署腳本 → `git commit && git push`。直接改部署端會在下次 check 被標成 `EDITED`，且下次部署時被覆蓋（舊檔進 `~/.ai-trash/`）。
 
 ## 環境
 以實際偵測到的 OS 為準，不要假設。
@@ -33,7 +33,7 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 完整對帳（含第三方 skills/plugins 與 settings 共用項）→ `/sync-check`。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
-- 我自己開 worktree／分支時一律用 `claude/<主題>`。系統自動生成的隨機字典名（`happy-snyder-98144c` 這種）開工前提議使用者改名，**不要自行 rename**——session metadata 會對不上。
+- 我自己開 worktree／分支時一律用 **`claude/<主題>`**（Codex 側用 `codex/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來）。系統自動生成的隨機字典名（`happy-snyder-98144c` 這種）開工前提議使用者改名，**不要自行 rename**——session metadata 會對不上。
 - 交付與回報一律附上分支名；使用者問「哪個 session 對哪個分支」時查 session 清單的 branch 欄位與 `git worktree list`，不要憑印象答。
 
 ## 溝通
@@ -78,6 +78,8 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 ## Cowork / 多端一致
 本檔是 Claude Code CLI 與 Cowork（桌面版）之間使用者偏好的單一事實來源；Codex 側的對應檔為 `~/.codex/AGENTS.md`，兩者都只是 router，實質規則以 `~/.ai-global/governance/` 為準。
 
+兩個 router **內容應保持對等，節次順序也刻意對齊**，方便逐節比對。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`claude/` vs `codex/`）、`/sync-check` 只有 Claude Code 跑得動、子代理機制 Codex 未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
+
 ## 變更紀錄
 - 2026-07-31 新增「多 session 並行」節（Opus 5）
 - 2026-08-16 新增「工程開發與輸出格式」節（完整版在 `80-engineering.md`）；制度目錄精簡，00/90/REPORT 歸檔（Fable 5，應使用者要求）
@@ -86,3 +88,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-08-28 記憶體回收自動化補上 macOS 版（Opus 5）
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「本檔的身分與改法」「全域設定要改／要同步時」兩節（Opus 5，應使用者要求）
 - 2026-09-07 安全刪除暫存區從 `~/Developer/temp/trash/` 改為 `~/.ai-trash/`；`~/Developer` 是 macOS 形狀的路徑，不該在 Windows 上被建出來（Opus 5，應使用者要求）
+- 2026-09-07 與 AGENTS.md 做對等稽核：分支前綴改為明示「跟著工具走」（`claude/` vs `codex/`），Cowork 節加上兩個 router 的對等契約與常見照抄錯誤（Opus 5，應使用者要求）
