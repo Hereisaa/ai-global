@@ -1,55 +1,46 @@
-# 50 — 安全細則（Safe Delete 完整版與其他紅線）
+# 50 — 安全細則
 
-> 摘要版在全域 CLAUDE.md / AGENTS.md 的「安全紅線」。本檔是完整流程與例外清單，
-> 動手刪除前不確定就讀這裡。
+> 本檔定義代理操作工作環境的安全底線。任務授權判準見 [20-judgment.md](20-judgment.md)；已授權範圍內的正常改檔不需要每次重問。
 
-## Safe Delete Policy（禁止直接銷毀檔案）
+## 可逆刪除
 
-**禁止**：`rm`、`rm -rf`、`rmdir`，以及任何程式化刪除（Python `os.remove()`、Node `fs.unlinkSync()` 等）——它們全部繞過垃圾桶，直接從 inode 移除，未 commit 的檔案將永久消失。
+- 禁止用 `rm`、`rmdir` 或程式化刪除（例如 Python `os.remove`、Node `fs.unlink`）直接銷毀工作檔案；改用 `mv`／`Move-Item` 移到 `~/Developer/temp/trash/`，加時間戳並避免覆蓋既有項目。
+- 動作前確認精確目標、內容及是否有未提交資料。描述與現況有實質差異時，先釐清受影響的操作；可獨立完成的安全工作繼續。
+- 每批建立獨立目的目錄，保留來源路徑資訊；同名檔分開存放，不能用時間戳掩蓋覆蓋風險。回報來源與新路徑，代理不主動清空 trash。
 
-**正確做法**：`mv` 到 `~/Developer/temp/trash/` 暫存，由使用者事後確認再真正清除。
+macOS／Linux 單檔範例（路徑須換成已核實目標）：
 
-### 操作流程
 ```bash
-# 1. 確保 trash 存在
-mkdir -p ~/Developer/temp/trash
-
-# 2. 單檔：加時間戳避免衝突
-mv src/old_button.tsx ~/Developer/temp/trash/old_button.tsx.$(date +%Y%m%d-%H%M%S)
-
-# 3. 批次：先開當次子資料夾再整批移入
-BATCH="$HOME/Developer/temp/trash/cleanup-$(date +%Y%m%d-%H%M%S)"
-mkdir -p "$BATCH"
-mv file1.txt old_dir/ "$BATCH/"
+mkdir -p "$HOME/Developer/temp/trash"
+trash_batch=$(mktemp -d "$HOME/Developer/temp/trash/cleanup-$(date +%Y%m%d-%H%M%S)-XXXXXX")
+mv "src/old_button.tsx" "$trash_batch/old_button.tsx"
 ```
 
-### 刪除後必須回報
-- 移到 trash 的檔案清單與新路徑。
-- 請使用者確認後自行清空 trash——**代理不主動清 trash**。
+Windows 使用 `Move-Item`，同樣先建立唯一目的目錄並確認目的檔不存在，不使用 `-Force` 覆蓋備份。
 
-### 例外（可不進 trash）
-- 工具原生清理指令產生的暫存：`flutter clean`、`node_modules`（刪後重 `npm install`）、`build/`、`.dart_tool/`、`Pods/`、`DerivedData/` 等。
-- Git stage 取消：用 `git restore --staged <file>`，不是刪檔。
-- macOS 系統暫存（`.DS_Store`）可直接清。
+既有例外維持限定範圍：工具原生清理指令產生的可重建暫存／建置產物（例如 `flutter clean`、node_modules、build、Pods、DerivedData），以及 `.DS_Store` 可清理；先證明目標是可重建產物且不含使用者資料，不能只憑目錄名稱套用例外。`git restore --staged <file>` 僅取消暫存，不是刪檔。
 
-### 理由（給想便宜行事的自己）
-Git 只能救回已 commit 的追蹤檔。未 commit 新檔、`.gitignore` 內的檔案（`.env`、`*.db`）被 `rm` 就是永久消失；Time Machine 也救不了當下未備份的版本。
+## 不可逆／對外操作
 
-## 其他紅線細則
+- force push（含 force-with-lease）、刪遠端分支、改寫已發布歷史、部署、套件發布、改公開狀態、一般 push，以及寄信／訊息／issue 或 PR 留言，都需使用者對這次具體操作的明確授權。
+- 授權須能確定目標及範圍；已明確要求的同一操作不重複確認。過去相似任務的同意不代表這次或另一個目標也獲授權。
+- 先完成可安全準備與驗證的工作，再為缺少授權的最後一步提供具體可審閱結果。不能為了測試而真的發布、刪資料或修改遠端。
+- 編輯既有檔案不因「非本 session 建立」就一律重新確認。先讀現況、保留未提交工作；授權不足、會丟失資料或目標有實質歧義時才停下該操作。
 
-### 不可逆／對外動作——先確認清單
-以下動作執行前必須取得使用者當次明確同意（先前類似情境的同意不延用）：
-- `git push --force`（含 `--force-with-lease` 推到共用分支）、刪除遠端分支、改寫已推送的歷史。
-- 對外發布：部署到 production、發 npm/pypi 套件、公開 GitHub repo。
-- 對外通訊：寄 email、發訊息、在 issue/PR 留言（若使用者未明確要求）。
-- 覆寫或刪除**不是本次 session 建立**的檔案：先看內容，若與描述不符，回報而非執行。
+## 憑證與秘密
 
-### 憑證與秘密
-- `.env` / `.env.local` / 一切 `.env.*`、`auth.json`、API key：不讀進回覆內文、不 commit、不傳外部服務、不寫進 log。
-- 需要引用環境變數時只寫變數名，不寫值。
+- 真實 `.env`／環境設定、auth.json、金鑰、token 與憑證：不貼回覆、不 commit、不傳外部服務、不寫入 log 或 repo 內備份。需要引用時只用變數名。
+- `.env.example` 只可包含變數名、空值或明顯假值；確認沒有真實秘密後才可追蹤。檔名是 example 不代表內容自動安全。
+- 設定查核只讀所需欄位，輸出允許公開的設定名稱與檢查結果；不要把完整設定、錯誤行或秘密值印出來。
+- 重要檔案改動前需可回復；Git 基準與安全備份流程統一依 [40-maintenance.md](40-maintenance.md)。
 
-### 修改既有重要檔案前先備份
-指令檔（CLAUDE.md/AGENTS.md）、設定檔、制度檔：先 `cp` 一份到 `~/Developer/agent-governance/backups/`（檔名加來源與時間戳），再改。
+## 執行層與驗證邊界
+
+- Markdown 是行為約定，不是安全隔離。sandbox／工具權限限制可操作範圍；執行前 command hook 可攔已定義操作；CI 驗證提交結果。各層能力不同，不能互相冒充。
+- shell 黑名單無法全面攔住 Python、其他工具或網路傳輸；不要用加幾個命令樣式宣稱所有紅線已受強制。
+- 新增防護需涵蓋允許與拒絕案例，使用 mock／隔離測試，確認 hook 實際掛載。執行後 hook 不能撤銷已發生的外部動作。
+- 未驗證的平台、未掛載的防護與無權限控制的環境，明確標為未驗證或限制；不自行切換全域權限設定。
 
 ## 變更紀錄
 - 2026-07-03 建檔（Fable 5）
+- 2026-09-07 保留可逆刪除與保密底線，釐清本次授權、既有檔案修改與無秘密範本，補上工具保護的實際邊界。

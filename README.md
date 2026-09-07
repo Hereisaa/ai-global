@@ -1,6 +1,6 @@
 # ai-global — AI 全域環境同步倉庫
 
-跨機器（macOS ↔ Windows）同步 AI 工具的**使用者全域層**：system prompt（CLAUDE.md／AGENTS.md）、制度規則（agent-governance）、自製 skills／commands／agents、hooks，以及第三方能力的安裝清單。
+跨機器（macOS ↔ Windows）同步 AI 工具的**使用者全域層**：使用者指令（CLAUDE.md／AGENTS.md）、制度規則（agent-governance）、自製 skills／commands／agents、hooks，以及第三方能力的安裝清單。
 
 ## 給 AI agent 的指引（讀到這裡的模型，照此執行）
 
@@ -14,17 +14,19 @@
 3. 照 `manifest/settings.json` 核對本機 `~/.claude/settings.json` 與 `~/.codex/config.toml` 的共用 key，缺漏回報使用者裁決後補上。
 4. 完成後逐項回報 PASS/FAIL 附證據。（Claude Code 裝好後，以上第 2–3 步可直接用 `/sync-check` skill 執行。）
 
-**如果你被要求「同步／對帳」**：`git pull --ff-only` 後執行上面第 1（check 模式）～4 步。
+**如果你被要求「檢查／對帳」**：只做唯讀連結、內容與 manifest 比對，回報差異；不 pull、補裝或修設定。
 
-**紅線（對 agent 強制）**：
-- 修改本 repo 內容後必須 `git commit && git push`，否則另一台機器拿不到。
+**如果你被要求「同步／更新到另一台已發布版本」**：確認目前分支及工作樹可安全更新後 `git pull --ff-only`，再檢查部署。需要修復連結或補裝能力時依本次具體授權處理，保留本機獨有設定；不同步未授權的權限或模型變更。
+
+**安全與授權約定（執行層保護另行驗證）**：
+- 修改完成後先驗證與回報；push 須有對具體遠端／分支的明確授權。未推送的變更不會同步到另一台機器。
 - 禁止 `rm`／程式化刪除；移除一律 `mv` 進 `~/Developer/temp/trash/` 加時間戳。
-- 任何憑證（`.credentials.json`、`auth.json`、`.env*`、API key）不得進本 repo；commit 前自查。
+- 任何真實憑證（`.credentials.json`、`auth.json`、環境值、API key）不得進本 repo；無秘密的 `.env.example` 依 `governance/50-safety.md` 檢查後可追蹤。
 - 制度檔（`governance/`）的修改要先讀 `governance/40-maintenance.md`（備份、變更紀錄、權限分級）。
 
 ## 設計原則
 
-- **搬得動的檔案**：正本放本倉庫，各機器用 symlink（macOS/Linux）或 Junction（Windows）鋪回 AI 工具認得的固定位置。改一處即全機同步，物理上不可能漂移。
+- **搬得動的檔案**：正本放本倉庫，各機器用 symlink（macOS/Linux）或 Junction（Windows）鋪回 AI 工具認得的固定位置。同機連結會反映目前工作樹；跨機仍需 Git 同步。Windows 單檔退回複製時需另行比對內容，不能假定不會漂移。
 - **搬不動的安裝品**（官方/第三方 skills、plugins）：只記 `manifest/` 清單，各機器用 `/sync-check` 對帳補裝。上游活著的東西不揹拷貝。
 - **機器特有的**（`settings.local.json`、Codex 的機器路徑設定、憑證）：留在本機，永不進倉庫。
 
@@ -57,7 +59,7 @@ bash ~/Developer/GitHub/ai-global/setup/install.sh
 - `SessionEnd` hook（`~/.claude/settings.json`，機器本地，手動加）：`bash ~/.claude/hooks/cleanup-orphans.sh --scope session` — 只清該 session 自己的子孫。
 - launchd agent：`bash setup/install-cleanup-agent.sh`（每 2 小時＋載入時；`--interval-hours N` 調整、`--uninstall` 移除）。
 - macOS 與 Windows 的差異（因為孤兒在 macOS 是被 launchd 收養成 ppid=1，不是失去父程序）：只看自己 uid 的程序；`launchctl list` 裡的 PID 一律跳過（那是使用者自己註冊的服務，例如 dev server、gateway）；`~/.claude/cleanup-protect.txt` 可加自訂保護 regex（一行一條）。
-- 容器 VM 對應 Windows 的 vmmem：Colima／lima。VM >3 GB 且無執行中容器時 `colima stop`。實測：Homebrew 版 colima 的 launchd job 雖設 `KeepAlive`，但 `colima start -f` 這個監管程序在 VM 停止後不會結束，所以 launchd 不會把 VM 拉回來——停了就是停了，log 會附上重啟指令 `launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.colima`。另外偵測到 Docker Desktop 與非 Desktop context 並存時會提醒關掉。
+- 容器 VM 的清理可能停止 Colima／lima；觸發門檻與自動重啟行為以目前腳本、服務設定及預演為準，不沿用歷史實測作保證。
 - 安全規則與 Windows 版一致：**絕不殺 `claude` 主程序**，命令列含 `remote-control` 的整棵子樹跳過；超過 1.5 GB 或 24 小時的 session 只發通知。紀錄在 `~/.claude/logs/cleanup.log`；`--dry-run` 可預演。
 
 ### Windows（原生）
@@ -75,16 +77,35 @@ bash ~/Developer/GitHub/ai-global/setup/install.sh
 
 ### 裝完之後（兩平台相同）
 
-開一個 Claude Code session，執行 `/sync-check`：照 manifest 補裝第三方 skills/plugins、核對 settings 共用項。
+開一個 Claude Code session，執行 `/sync-check` 做唯讀對帳；要補裝或套用差異時明確指定範圍。
 
 ## 日常工作流
 
-- 改了 CLAUDE.md／制度檔／自製 skill → 在任一台 `git commit && git push`。
-- 換到另一台開工前 → `git pull`（或直接跑 `/sync-check`，它包含 pull）。
-- 裝了新的第三方 skill 且想要兩台都有 → 把它記進 `manifest/skills.json` 再 push。
-- 制度檔的修改規範（備份、變更紀錄、權限分級）照 `governance/40-maintenance.md`，不因搬進 git 而改變；git 歷史是第二層回滾機制。
+- 改了指令／制度檔／自製 skill：完成相關驗證，再提交本次範圍；已獲對外發布授權才 push。
+- 換到另一台時先確認工作樹；已要求同步且可安全更新時用 `git pull --ff-only`，再檢查掛載與內容。
+- 新第三方能力要跨機共用時，更新 `manifest/skills.json` 並驗證來源；發布與安裝遵守各自授權。
+- 制度修改依 `governance/40-maintenance.md`：乾淨且已追蹤的版本用 Git 回復；未提交或未追蹤的重要內容先備份。
 
 ## 紅線
 
 - 憑證類（`.credentials.json`、`auth.json`、`.env`、API key）**永不進本倉庫**。commit 前發現疑似金鑰，停下來處理。
 - 本倉庫必須保持 **private**。
+
+
+## 治理檢查
+
+```bash
+python3 setup/check_governance.py
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
+python3 setup/check_governance.py --local
+```
+
+離線檢查支援 Python 3.9+；本機 Codex TOML 對帳需 Python 3.11+ 的標準函式庫。Windows 可使用 `python`，測試時以環境變數 `PYTHONDONTWRITEBYTECODE=1` 避免產生快取。
+
+- 離線檢查：兩邊入口一致、制度路由與現行相對連結有效、設定白名單結構正確；行數只是維護預算。
+- `--local`：另核對本機連結／副本內容及支援的模型設定欄位。漂移只回報，不擅自修設定；不包含完整權限、hooks 或插件對帳。
+- `bash setup/install.sh check`：保留原有所有安裝連結檢查，不能替代內容／設定檢查。完整設定對帳仍依 manifest 與 `/sync-check`。
+- `.github/workflows/governance.yml` 在 push／PR 執行離線檢查和單元測試。加入工作流程不等於遠端已跑過，也不等於已設成分支保護的必要檢查。
+- [驗收情境](docs/reference/governance-evaluation.md) 用於獨立規則讀回及後續各平台行為測試；[平台機制](docs/reference/agent-runtime.md) 記錄資料來源與限制。
+
+這些檢查不會強制模型遵守全部安全紅線，也不會自動調整本機 sandbox、權限或掛載 hooks。

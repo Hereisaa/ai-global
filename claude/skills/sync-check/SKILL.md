@@ -1,32 +1,35 @@
 ---
 name: sync-check
-description: 對帳 ai-global 同步倉庫與本機 AI 全域環境：git pull、檢查 symlink/junction 部署、比對 manifest 的第三方 skills/plugins/commands 與 settings 共用項；缺漏補裝、差異回報使用者裁決。使用者說「同步檢查」「sync check」「對帳 AI 環境」「另一台改了同步一下」時使用。
+description: 對帳 ai-global 與本機 AI 全域環境，檢查部署、第三方能力與設定差異。使用者要求同步檢查、對帳 AI 環境或同步另一台已發布版本時使用；預設唯讀，明確要求同步或修復才套用範圍內變更。
 ---
 
-# sync-check — AI 全域環境對帳
+# AI 全域環境對帳
 
-倉庫位置：`~/Developer/GitHub/ai-global`（Windows 原生為 `%USERPROFILE%\Developer\GitHub\ai-global`）。
-原則：比對交給 git 與腳本等確定性工具，你只負責解讀結果、補裝、和把需要裁決的差異問清楚。**任何刪除一律走 trash 流程且先問使用者。**
+倉庫：`~/Developer/GitHub/ai-global`（Windows 為 `%USERPROFILE%\Developer\GitHub\ai-global`）。授權依 [20](../../../governance/20-judgment.md)，安全依 [50](../../../governance/50-safety.md)，修改共用制度依 [40](../../../governance/40-maintenance.md)。
 
-依序執行：
+## 先辨識要求
 
-## 1. 拉最新
-`git -C ~/Developer/GitHub/ai-global pull --ff-only`。
-有本地未 commit 的變更 → 停下來列給使用者，問要 commit+push 還是放棄，不要自行 stash 後忘掉。
+- 「檢查／對帳／sync-check」只做唯讀：不 pull、補裝、改連結、改設定或 push。
+- 明確要求同步已發布版本：先查分支、遠端與工作樹；確認目標正確且無未提交工作後才 `git pull --ff-only`。本地有變更或更新不能快轉時保留現況，回報阻礙；不自行 stash、丟棄或推送。
+- 明確要求修復／補裝：只處理指定範圍，先比對再套用；具體授權仍有效就不重問。調整權限、模型或第三方安裝不能只憑「有差異」推定獲准。
 
-## 2. 連結健康檢查
-- macOS/Linux：`bash ~/Developer/GitHub/ai-global/setup/install.sh check`；出現 DRIFT → 跑一次 `install.sh` 修復（冪等、不刪檔，被取代的實體進 trash）。
-- Windows 原生：重跑 `install.ps1`（冪等）。若部署時退回過 COPY 模式，用 `git diff --no-index` 比對 repo 檔與部署副本，不一致列給使用者裁決方向。
+## 唯讀檢查
 
-## 3. manifest 對帳（`manifest/skills.json`）
-- `type: skill` → 對照 `ls ~/.claude/skills/`。缺 → 從 `source` 標的 GitHub repo 抓對應目錄裝回 `~/.claude/skills/<name>/`；裝不回來就回報，不要硬湊替代品。
-- `type: plugin` → 對照 `~/.claude/plugins/installed_plugins.json`。缺 → 引導使用者用 `/plugin` 從 manifest 記載的 marketplace 安裝。
-- `type: command` → 核對 `target` 檔案存在。
-- 反向檢查：本機有、manifest 沒有的第三方 skill/plugin → 列出來問使用者「要納入 manifest（兩台都裝）還是本機獨有？」
+在倉庫根目錄跑 `python3 setup/check_governance.py --local`；Codex TOML 對帳需 Python 3.11+，舊版跳過時明列缺口，不自行解析 TOML 或安裝依賴。
 
-## 4. settings 共用項（`manifest/settings.json`）
-- `claude_settings` 的結構化區塊（`permissions`、`statusLine`、`enabledPlugins`、`extraKnownMarketplaces`）：與 `~/.claude/settings.json` 對應區塊做深度比對，manifest 是共用基準。本機缺漏 → 先備份 settings.json，再把 manifest 版本合併進去（保留本機獨有的其他 key）。本機多出或值不同 → 列給使用者裁決：要更新 manifest（改共用基準並 push）還是改回本機。
-- `codex_config` 的 key：逐項比對 `~/.codex/config.toml`，同樣缺補、異問。
+- macOS／Linux：另跑 `bash setup/install.sh check` 核對全部安裝連結。
+- Windows：比對 repo 與部署路徑的 Junction／symlink 目標及副本內容；不以重跑安裝腳本冒充唯讀檢查。
+- `manifest/skills.json`：核對 skill 目錄、command 的 target、已安裝 plugin 記錄；回報缺漏與本機獨有項，不自動加入 manifest。
+- `manifest/settings.json`：核對列出的共用 key。檢查器只涵蓋白名單模型欄位；permissions、statusLine、enabledPlugins、extraKnownMarketplaces 另做結構比對。
+- 設定用正規 JSON／TOML parser，僅輸出差異的欄位名稱及影響，不貼原始設定或秘密值；本機／專案覆寫與執行時有效值分開標示。
 
-## 5. 回報
-結論先行（「已同步」／「補了 N 項」／「M 項差異待裁決」），再逐項列動作與證據（指令輸出關鍵行）。
+## 套用已授權修復
+
+- 連結修復使用對應平台安裝腳本；先確認實際受影響目標在授權內，既有內容依安全規範可回復。
+- 缺少 skill／command 時核實 manifest 的來源與目標；plugin 依當前平台安裝機制處理，不能執行就回報，不自行換替代品。
+- 設定差異先確定以本機還是 manifest 為準，修改前備份有未提交內容的重要檔；含秘密的備份不得進 repo。保留授權外的本機 key，不為對帳全綠覆蓋整個設定。
+- 修改後重跑受影響的檢查；不自動 push，發布需對指定遠端／分支的明確授權。
+
+## 回報
+
+先說已檢查／已修復的範圍，再給實跑證據、剩餘差異與未驗證項目。連結、內容、設定、當次載入與執行保護分開描述；未檢查的項目不能稱已同步。
