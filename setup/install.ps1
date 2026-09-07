@@ -31,6 +31,18 @@ if (Test-Path -LiteralPath $State) {
 # Get-Item -Force also returns dangling links, which Test-Path reports as absent.
 function Get-Existing($P) { Get-Item -LiteralPath $P -Force -ErrorAction SilentlyContinue }
 
+# Raw byte compare instead of Get-FileHash: module autoloading is unreliable when
+# PowerShell is launched from Git Bash, and these files are all small.
+function Test-SameContent($A, $B) {
+  $ia = Get-Item -LiteralPath $A
+  $ib = Get-Item -LiteralPath $B
+  if ($ia.Length -ne $ib.Length) { return $false }
+  $ba = [System.IO.File]::ReadAllBytes($ia.FullName)
+  $bb = [System.IO.File]::ReadAllBytes($ib.FullName)
+  for ($i = 0; $i -lt $ba.Length; $i++) { if ($ba[$i] -ne $bb[$i]) { return $false } }
+  return $true
+}
+
 function Move-ToTrash($P) {
   $item = Get-Existing $P
   if (-not $item) { return }
@@ -57,9 +69,11 @@ function Get-Status($Rel, $Dst) {
   $src  = Join-Path $Repo $Rel
   $item = Get-Existing $Dst
   if (-not $item) { return "MISSING" }
-  if ($item.LinkType -and -not (Test-Path -LiteralPath $Dst)) { return "STALE" }
-  if (-not (Test-Path -LiteralPath $Dst -PathType Leaf)) { return "EDITED" }
-  if ((Get-FileHash -LiteralPath $src).Hash -eq (Get-FileHash -LiteralPath $Dst).Hash) { return "OK" }
+  # Nothing deployed is ever a link, so any link here is left over from an older
+  # install - dangling or not. (Test-Path still reports dangling links as present.)
+  if ($item.LinkType) { return "STALE" }
+  if (-not [System.IO.File]::Exists($item.FullName)) { return "EDITED" }
+  if (Test-SameContent $src $Dst) { return "OK" }
   if ($PrevCommit) {
     $prevBlob = & git -C $Repo rev-parse "$($PrevCommit):$Rel" 2>$null
     $dstBlob  = & git -C $Repo hash-object $Dst 2>$null
@@ -107,7 +121,12 @@ function PutDir($Rel, $Dst) {
     $sub = $f.FullName.Substring($srcRoot.Length).TrimStart('\').Replace('\', '/')
     Put "$Rel/$sub" (Join-Path $Dst $sub)
   }
-  if (-not (Test-Path -LiteralPath $Dst -PathType Container)) { return }
+  # Skip the extras scan when the destination is still a link: install already
+  # unlinked it above, and in check mode every file under it is reported as
+  # STALE/MISSING anyway. Enumerating a dangling one would just throw.
+  $d = Get-Existing $Dst
+  if (-not $d -or $d.LinkType) { return }
+  if (-not [System.IO.Directory]::Exists($Dst)) { return }
   # files that no longer exist in the repo
   $dstRoot = (Resolve-Path -LiteralPath $Dst).Path
   foreach ($f in Get-ChildItem -LiteralPath $dstRoot -Recurse -File) {
@@ -156,12 +175,15 @@ if ($Mode -eq "check") {
 $Branch = (& git -C $Repo rev-parse --abbrev-ref HEAD 2>$null)
 if (-not $Branch) { $Branch = "unknown" }
 New-Item -ItemType Directory -Force -Path $Global | Out-Null
+# Each element is parenthesised on purpose: inside an array literal PowerShell
+# binds "," tighter than "+", so an unparenthesised concatenation would be split
+# into separate elements and the joined JSON would come out with stray newlines.
 $json = @(
   '{',
-  '  "source_repo": "' + $Repo.Replace('\', '\\') + '",',
-  '  "commit": "' + $HeadCommit + '",',
-  '  "branch": "' + $Branch + '",',
-  '  "deployed_at": "' + (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + '",',
+  ('  "source_repo": "' + $Repo.Replace('\', '\\') + '",'),
+  ('  "commit": "' + $HeadCommit + '",'),
+  ('  "branch": "' + $Branch + '",'),
+  ('  "deployed_at": "' + (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ") + '",'),
   '  "platform": "Windows"',
   '}'
 ) -join "`n"

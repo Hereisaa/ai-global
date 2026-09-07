@@ -42,7 +42,9 @@ backup() { # backup <path> - never delete, park in trash keeping the structure
 
 classify() { # classify <repo-rel> <dst> -> OK | MISSING | STALE | BEHIND | EDITED
   local rel="$1" dst="$2" prev_blob dst_blob
-  if [ -L "$dst" ] && [ ! -e "$dst" ]; then echo STALE; return; fi
+  # Nothing deployed is ever a link, so any link here is left over from an
+  # older install - dangling or not.
+  if [ -L "$dst" ]; then echo STALE; return; fi
   if [ ! -e "$dst" ]; then echo MISSING; return; fi
   if [ -f "$dst" ] && cmp -s "$REPO/$rel" "$dst"; then echo OK; return; fi
   if [ -n "$PREV_COMMIT" ] && [ -f "$dst" ]; then
@@ -90,7 +92,9 @@ put_dir() { # put_dir <repo-rel-dir> <dst-dir> - mirror a repo-owned directory
   while IFS= read -r f; do
     put "$rel/$f" "$dst/$f"
   done < <(cd "$REPO/$rel" && find . -type f ! -name .gitkeep ! -path './backups/*' | sed 's|^\./||' | sort)
-  if [ ! -d "$dst" ]; then return; fi
+  # Skip the extras scan while the destination is still a link: install already
+  # unlinked it above, and in check mode every file under it is reported anyway.
+  if [ -L "$dst" ] || [ ! -d "$dst" ]; then return; fi
   # files that no longer exist in the repo
   while IFS= read -r f; do
     if [ -e "$REPO/$rel/$f" ]; then continue; fi
