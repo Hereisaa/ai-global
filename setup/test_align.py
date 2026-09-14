@@ -157,6 +157,27 @@ class AlignTests(unittest.TestCase):
         summary = self.run_align(yes=True, resolve={"claude:plugin:stray@m": "trash"})
         self.assertTrue(any("不支援動作" in f for f in summary["failures"]))
 
+    def test_version_update_refreshes_marketplace_and_only_claude_is_compared(self):
+        self.run_align(yes=True)
+        registry = self.home / ".claude/plugins/installed_plugins.json"
+        data = cap.read_json(registry)
+        data["plugins"]["wanted@m"][0]["version"] = "0.9.0"
+        registry.write_text(json.dumps(data), encoding="utf-8")
+        self.manifest["items"][1]["version"] = "1.0.0"
+        self.manifest["items"].append({"tool": "codex", "type": "plugin", "id": "wanted@m", "default_enabled": True,
+                                       "source": "marketplace github:o/m", "version": "1.0.0"})
+        (self.repo / "manifest/skills.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+        (self.home / ".codex").mkdir(exist_ok=True)
+        (self.home / ".codex/config.toml").write_text('[plugins."wanted@m"]\nenabled = true\n', encoding="utf-8")
+        summary = self.run_align(yes=True)
+        self.assertEqual([c["key"] for c in summary["conflicts"] if c["kind"] == "version"], ["claude:plugin:wanted@m"])
+        self.cli_calls.clear()
+        summary = self.run_align(yes=True, resolve={"claude:plugin:wanted@m": "update"})
+        self.assertFalse([f for f in summary["failures"] if "wanted@m" in f])  # parked's fake clone failing is fixture noise
+        self.assertIn(["claude", "plugin", "marketplace", "update", "m"], self.cli_calls)
+        self.assertLess(self.cli_calls.index(["claude", "plugin", "marketplace", "update", "m"]),
+                        self.cli_calls.index(["claude", "plugin", "install", "wanted@m"]))
+
     def test_unknown_action_is_reported(self):
         (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
         (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")

@@ -162,6 +162,16 @@ def install_github_skill(item, home, trash, run=None, echo=print):
     return result
 
 
+def refresh_marketplace(item, run=None, echo=print):
+    """Pull the latest marketplace snapshot so a re-install can see a newer version.
+    `claude plugin install` only ever installs what the local snapshot lists."""
+    name = item["id"].rpartition("@")[2]
+    cmd = ["claude", "plugin", "marketplace", "update", name] if item["tool"] == "claude"         else ["codex", "plugin", "marketplace", "upgrade"]
+    ok, output = run_cli(cmd, run=run)
+    if not ok:
+        echo(f"WARN    marketplace 更新失敗，仍嘗試安裝：{' '.join(cmd)}（{output.splitlines()[-1] if output else '無輸出'}）")
+
+
 def install_plugin(item, marketplace_repo, run=None, echo=print):
     add, install = plugin_commands(item, marketplace_repo)
     if add:
