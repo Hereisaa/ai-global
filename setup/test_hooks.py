@@ -23,18 +23,6 @@ class HookTests(unittest.TestCase):
         cls.fixtures = Path(tempfile.mkdtemp(prefix="ai-global-hooks-"))
 
     @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
-    def test_stop_never_runs_project_commands_or_blocks(self):
-        # A hostile command on PATH would fail if the retired hook invoked it.
-        folder = self.fixtures / "stop"
-        folder.mkdir()
-        (folder / "package.json").write_text('{"scripts":{"typecheck":"exit 91"}}')
-        for payload in ({"cwd": str(folder)}, {"stop_hook_active": True}, {}):
-            result = subprocess.run([BASH, str(HOOKS / "stop-typecheck.sh")],
-                                    input=json.dumps(payload), text=True, capture_output=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(result.stdout, "")
-
-    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
     def test_macos_decisions_preserve_remote_control_and_global_ownership(self):
         source = (HOOKS / "cleanup-orphans.sh").read_text(encoding="utf-8")
         decisions = source[source.index("DECISIONS=$(snapshot"):source.index("\nkilled=0")]

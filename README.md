@@ -53,6 +53,7 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 | 新機器／重裝 | `/ai-global deploy`；沒 Claude 時直接跑 `setup/install.*` |
 | 改完 router／制度檔 | `/ai-global govcheck` 或 `python setup/check_governance.py` |
 | 查看專案預設／本機既有及開關 | `/ai-global capabilities` 或 `python setup/capabilities.py list` |
+| 模型／工具改版後看 harness 哪裡過時 | `/ai-global evolve`：核對 `manifest/sources.json` 列的官方文件與 marketplace，寫 `docs/reports/harness-review-<日期>.md`；只產報告，不自動改 |
 | 補一個第三方能力 | `/ai-global install <name>` |
 | 手動 | macOS `bash setup/install.sh [check]`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1 [-Mode check]` |
 
@@ -91,13 +92,15 @@ powershell -ExecutionPolicy Bypass -File D:\GitHub\ai-global\setup\install.ps1 -
 claude/
   CLAUDE.md                  Claude Code router → ~/.claude/CLAUDE.md
   statusline.sh              狀態列：repo·worktree、分支、模型、context、5h/7d 額度、token
-  hooks/                     cleanup-orphans.{sh,ps1}、stop-typecheck.sh → ~/.claude/hooks/（整目錄鏡像）
-  skills/ai-global/          按需分派器 + commands/{check,sync,deploy,govcheck,capabilities,install,common}.md
-  commands/ agents/          自製 slash command 與 agent（目前空；逐一部署）
+  hooks/                     cleanup-orphans.{sh,ps1} → ~/.claude/hooks/（整目錄鏡像）
+  skills/ai-global/          按需分派器 + commands/{check,sync,deploy,govcheck,capabilities,install,evolve,common}.md
+  commands/ agents/          自製 slash command 與 agent（需要時再建目錄；逐一部署）
 codex/AGENTS.md              Codex router → ~/.codex/AGENTS.md
-governance/                  憲法本體 → ~/.ai-global/governance/（整目錄鏡像；backups/ 不部署）
+governance/                  憲法本體 → ~/.ai-global/governance/（整目錄鏡像）
 manifest/skills.json         第三方能力清單（名稱＋來源＋版本）
 manifest/settings.json       settings 共用基準（Claude 四個區塊；Codex 只有 personality）
+manifest/sources.json        evolve 的核對來源（官方文件、changelog、marketplace；記上次核對日期）
+docs/reports/                evolve 產出的 harness 審查報告（依日期）
 setup/install.sh|.ps1        部署與檢查，兩支語意完全相同
 setup/check_governance.py    治理靜態檢查與本機對帳
 setup/capabilities.py        能力來源、狀態清單及本機開關
@@ -176,7 +179,6 @@ python setup/capabilities.py enable --tool claude --kind skill --id <ID>
 
 | 腳本 | 接法 |
 |---|---|
-| `stop-typecheck.sh` | 舊入口已退役為不執行檢查；必要 typecheck 由任務驗收依專案套件管理器執行，避免其他 session 的髒檔觸發重跑 |
 | `cleanup-orphans.sh`（macOS） | `SessionEnd`：`bash ~/.claude/hooks/cleanup-orphans.sh --scope session`；排程：`bash setup/install-cleanup-agent.sh`（launchd，每 2h；`--interval-hours N`、`--uninstall`） |
 | `cleanup-orphans.ps1`（Windows） | 自 2026-09-08 改為手動：桌面「Claude 清理背景程序.cmd」或 `~/.claude/hooks/cleanup-orphans.ps1 -Scope global`；既有排程工作 `ClaudeCodeOrphanCleanup` 與失效的 SessionEnd hook 已移除，不因部署重新掛載 |
 

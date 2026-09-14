@@ -18,9 +18,8 @@
 | [80-engineering.md](80-engineering.md) | 工程設計、程式碼變更與交付格式 |
 | [USER-GUIDE.md](USER-GUIDE.md) | 給使用者的日常操作、驗證與狀態判讀 |
 | [agent-runtime.md](../docs/reference/agent-runtime.md) | 官方工具載入與權限機制、平台維護參考 |
-| [backups/](backups/) | 回復與查考用的歷史快照，**不是生效指令** |
 
-`backups/` 中的舊規則、模型比較與實測狀態，不代表現行制度或當前環境。查歷史時明確標示日期，不將整個備份目錄載入為規則。
+歷史版本一律查 Git（`git log -p governance/`），不在 repo 內另存快照；舊規則與實測狀態不代表現行制度。
 
 ## 變更紀錄
 - 2026-07-03 建檔（Fable 5）
@@ -30,3 +29,4 @@
 - 2026-08-16 新增 80-engineering.md；目錄精簡：00-diagnosis、90-letter、REPORT-fable5-vs-opus 歸檔至 `backups/archived-*`，相關引用已修（Fable 5，應使用者要求）
 - 2026-09-06 精簡為職責索引；新增執行環境參考，明定備份只供歷史查考。
 - 2026-09-14 外部參考按需從 source_repo 解析，避免部署端斷鏈與無關讀取（Codex，使用者授權）。
+- 2026-09-14 移除 `backups/` 目錄，歷史改查 Git；新增 `/ai-global evolve`（Opus 5，使用者授權）

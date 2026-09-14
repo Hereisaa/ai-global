@@ -115,7 +115,7 @@ put_dir() { # put_dir <repo-rel-dir> <dst-dir> - mirror a repo-owned directory
   fi
   while IFS= read -r f; do
     put "$rel/$f" "$dst/$f"
-  done < <(cd "$REPO/$rel" && find . -type f ! -name .gitkeep ! -path './backups/*' | sed 's|^\./||' | sort)
+  done < <(cd "$REPO/$rel" && find . -type f | sed 's|^\./||' | sort)
   # Skip the extras scan while the destination is still a link: install already
   # unlinked it above, and in check mode every file under it is reported anyway.
   if [ -L "$dst" ] || [ ! -d "$dst" ]; then return; fi

@@ -29,6 +29,12 @@ def router(title, prefix, claude_only=False):
     return text
 
 
+class FakeDate(checker.date):
+    @classmethod
+    def today(cls):
+        return cls(2026, 9, 14)
+
+
 class GovernanceTests(unittest.TestCase):
     def setUp(self):
         self.root = Path("/virtual/ai-global").resolve()
@@ -45,6 +51,8 @@ class GovernanceTests(unittest.TestCase):
             "claude_settings": {},
             "codex_config": {"model_reasoning_effort": "ultra", "personality": "pragmatic"},
         })
+        self.sources_path = self.root / "manifest/sources.json"
+        self.files[self.sources_path] = self.sources_json("2026-09-14")
         self.checks = checker.Checks()
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
@@ -62,8 +70,15 @@ class GovernanceTests(unittest.TestCase):
         return (p for p in self.files if p.parent == path and p.match(pattern))
 
     def run_repository(self):
-        self.checks.repository(self.root)
+        with patch.object(checker, "date", FakeDate):
+            self.checks.repository(self.root)
         return self.checks.exit_code
+
+    @staticmethod
+    def sources_json(checked, stale_days=45):
+        return json.dumps({"stale_days": stale_days, "sources": [
+            {"id": "openai-guide", "url": "https://example.invalid/guide", "last_checked": checked},
+        ]})
 
     def output(self):
         return "\n".join(f"{status} {message}" for status, message in self.checks.results)
@@ -72,6 +87,25 @@ class GovernanceTests(unittest.TestCase):
         self.assertEqual(self.run_repository(), 0)
         self.assertNotIn("WARN", self.output())
         self.assertIn("節次對齊", self.output())
+
+    def test_stale_source_warns_with_evolve_hint(self):
+        self.files[self.sources_path] = self.sources_json("2026-07-01")
+        self.assertEqual(self.run_repository(), 0)
+        self.assertIn("WARN 核對來源超過 45 天未核對，建議執行 /ai-global evolve：openai-guide（2026-07-01）", self.output())
+
+    def test_source_within_window_passes(self):
+        self.files[self.sources_path] = self.sources_json("2026-08-01")
+        self.assertEqual(self.run_repository(), 0)
+        self.assertIn("PASS 1 個核對來源皆在 45 天內核對過", self.output())
+
+    def test_malformed_source_entry_fails(self):
+        self.files[self.sources_path] = json.dumps({"stale_days": 45, "sources": [{"id": "x", "url": "u", "last_checked": "9/14"}]})
+        self.assertEqual(self.run_repository(), 1)
+        self.assertIn("last_checked 需為 YYYY-MM-DD", self.output())
+
+    def test_missing_sources_file_fails(self):
+        del self.files[self.sources_path]
+        self.assertEqual(self.run_repository(), 1)
 
     def test_section_drift_fails(self):
         self.files[self.root / CODEX] += "## 只有一邊有的節\n內容\n"
@@ -212,8 +246,8 @@ class GovernanceTests(unittest.TestCase):
             self.checks.local(self.root, home, None)
         deployed.assert_any_call(self.root / checker.SYNC_SKILL, disabled)
 
-    def test_unscoped_and_backup_documents_are_not_scanned(self):
-        for name in ("other/invalid.md", "governance/backups/old.md", "docs/reference/backups/old.md"):
+    def test_unscoped_documents_are_not_scanned(self):
+        for name in ("other/invalid.md", "docs/archive/old.md"):
             self.files[self.root / name] = "[broken](absent.md)\n"
         self.assertEqual(self.run_repository(), 0)
 
@@ -226,13 +260,12 @@ class GovernanceTests(unittest.TestCase):
         self.files[self.root / "governance/10-dispatch.md"] += "[rule](20-judgment.md#任意片段)\n[here](#本頁)\n"
         self.assertEqual(self.run_repository(), 0)
 
-    def test_url_fence_inline_example_and_archive_are_ignored(self):
+    def test_url_fence_and_inline_example_are_ignored(self):
         self.files[self.root / "governance/10-dispatch.md"] += (
             "```markdown\n[example](absent.md)\n```\n"
             "~~~\n[example](also-absent.md)\n~~~\n"
             "`[example](inline-absent.md)`\n"
             "[remote](https://example.invalid/no.md)\n"
-            "[history](backups/old.md)\n"
         )
         self.assertEqual(self.run_repository(), 0)
 

@@ -4,7 +4,7 @@
 Require two routers, ten governance documents, root README, runtime reference,
 and the ai-global skill. Check links in those files and current governance/*.md,
 docs/reference/*.md and ai-global commands/*.md only; never recursively scan
-the repository or backups.
+the repository.
 
 The two routers are parallel, not identical: they must share the same `##`
 section order (Claude may add its Cowork section) and each must carry its own
@@ -13,6 +13,7 @@ so it is checked explicitly.
 """
 
 import argparse
+from datetime import date
 import json
 from pathlib import Path
 import re
@@ -35,6 +36,7 @@ TOOL_PREFIX = {"codex/AGENTS.md": "codex/<主題>", "claude/CLAUDE.md": "claude/
 CLAUDE_ONLY_SECTIONS = ("## Cowork / 多端一致",)
 RUNTIME_DOC = "docs/reference/agent-runtime.md"
 SYNC_SKILL = "claude/skills/ai-global/SKILL.md"
+SOURCES_FILE = "manifest/sources.json"
 GOVERNANCE_DOCUMENTS = GOVERNANCE_FILES + ("README.md", "USER-GUIDE.md")
 REQUIRED_DOCUMENTS = ROUTERS + tuple("governance/" + name for name in GOVERNANCE_DOCUMENTS) + (
     "README.md", RUNTIME_DOC, SYNC_SKILL,
@@ -140,7 +142,7 @@ class Checks:
             relative = unquote(parsed.path)
             if parsed.scheme or parsed.netloc or not relative:
                 continue
-            if relative.startswith(("/", "~")) or "backups" in Path(relative).parts:
+            if relative.startswith(("/", "~")):
                 continue
             base = path.parent
             if deployed and relative.startswith("../"):
@@ -189,7 +191,7 @@ class Checks:
                 self.budget(name, text, GOVERNANCE_LINE_BUDGET)
             self.links(root / name, name, text)
         if not self.exit_code:
-            self.report("PASS", "文件內容與連結有效：兩個 router、十份必要治理文件、根 README、runtime、ai-global skill 與 commands，以及 governance 與 docs/reference 直層 Markdown；未掃描 backups")
+            self.report("PASS", "文件內容與連結有效：兩個 router、十份必要治理文件、根 README、runtime、ai-global skill 與 commands，以及 governance 與 docs/reference 直層 Markdown")
         self.routers(documents)
         manifest = self.json_object(root / "manifest/settings.json")
         if manifest is not None:
@@ -206,7 +208,36 @@ class Checks:
                         valid = False
             if valid:
                 self.report("PASS", "manifest 白名單設定結構有效")
+        self.sources(root)
         return manifest
+
+    def sources(self, root, today=None):
+        """evolve 的核對來源：結構有效，且 last_checked 未超過 stale_days。"""
+        data = self.json_object(root / SOURCES_FILE)
+        if data is None:
+            return
+        stale_days = data.get("stale_days")
+        entries = data.get("sources")
+        if type(stale_days) is not int or stale_days <= 0 or not isinstance(entries, list):
+            self.report("FAIL", f"{SOURCES_FILE} 需要正整數 stale_days 與 sources 清單")
+            return
+        today = today or date.today()
+        stale = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) and entry[k] for k in ("id", "url", "last_checked")):
+                self.report("FAIL", f"{SOURCES_FILE} 每筆需要非空 id、url、last_checked")
+                return
+            try:
+                checked = date.fromisoformat(entry["last_checked"])
+            except ValueError:
+                self.report("FAIL", f"{SOURCES_FILE} last_checked 需為 YYYY-MM-DD：{entry['id']}")
+                return
+            if (today - checked).days > stale_days:
+                stale.append(f"{entry['id']}（{entry['last_checked']}）")
+        if stale:
+            self.report("WARN", f"核對來源超過 {stale_days} 天未核對，建議執行 /ai-global evolve：{'、'.join(stale)}")
+        else:
+            self.report("PASS", f"{len(entries)} 個核對來源皆在 {stale_days} 天內核對過")
 
     def deployment(self, source, target, directory=False):
         # Deployed files are copies by design; a link here is a leftover from the

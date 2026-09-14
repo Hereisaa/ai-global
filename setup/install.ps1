@@ -143,10 +143,7 @@ function PutDir($Rel, $Dst) {
     }
   }
   $srcRoot = (Resolve-Path -LiteralPath $src).Path
-  $skip    = Join-Path $srcRoot "backups"
   foreach ($f in Get-ChildItem -LiteralPath $srcRoot -Recurse -File) {
-    if ($f.Name -eq ".gitkeep") { continue }
-    if ($f.FullName.StartsWith($skip, [StringComparison]::OrdinalIgnoreCase)) { continue }
     $sub = $f.FullName.Substring($srcRoot.Length).TrimStart('\').Replace('\', '/')
     Put "$Rel/$sub" (Join-Path $Dst $sub)
   }

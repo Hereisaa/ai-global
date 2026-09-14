@@ -1,0 +1,78 @@
+{
+  "_readme": "evolve 指令的核對來源。每筆記錄用途、上次核對日期與當時看到的版本／重點；evolve 只讀取並更新 last_checked 與 last_seen，不自動改制度或安裝能力。stale_days 超過即由 check_governance 提醒。",
+  "stale_days": 45,
+  "sources": [
+    {
+      "id": "openai-latest-model-guide",
+      "url": "https://developers.openai.com/api/docs/guides/latest-model",
+      "watch": "Codex 端當前模型的官方使用建議（prompt、skills、AGENTS.md）",
+      "affects": ["codex/AGENTS.md", "governance/70-behavior-contract.md", "manifest/skills.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "GPT-6 Astra：少 skill、明確觸發、progressive disclosure、去 scaffolding、明訂完成邊界"
+    },
+    {
+      "id": "openai-developers-blog",
+      "url": "https://developers.openai.com/blog",
+      "watch": "新模型或 harness 變更公告（例：Rethinking skills and prompts for GPT-6 Astra）",
+      "affects": ["governance/", "manifest/skills.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "rethinking-skills-and-prompts-for-gpt-6-astra"
+    },
+    {
+      "id": "codex-agents-md",
+      "url": "https://learn.chatgpt.com/docs/agent-configuration/agents-md",
+      "watch": "Codex 指令載入規則（override、fallback、32 KiB 上限）",
+      "affects": ["docs/reference/agent-runtime.md", "codex/AGENTS.md"],
+      "last_checked": "2026-09-06",
+      "last_seen": "project_doc_max_bytes 32 KiB 合併上限"
+    },
+    {
+      "id": "codex-config-reference",
+      "url": "https://learn.chatgpt.com/docs/config-file/config-reference",
+      "watch": "config.toml 欄位（plugins、skills.config、mcp_servers、hooks）",
+      "affects": ["setup/capabilities.py", "manifest/settings.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "codex 0.152：plugin add/remove、marketplace add 可讀 Claude marketplace 格式，plugin .mcp.json 自動進 mcp_servers"
+    },
+    {
+      "id": "claude-skills-best-practices",
+      "url": "https://platform.claude.com/docs/en/agents-and-tools/agent-skills/best-practices",
+      "watch": "Skill 撰寫規範（description 即路由、SKILL.md < 500 行、one skill one job）",
+      "affects": ["claude/skills/ai-global/", "manifest/skills.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "description 寫成路由規則；只在觸發時載入 body"
+    },
+    {
+      "id": "claude-code-plugins-reference",
+      "url": "https://code.claude.com/docs/en/plugins-reference",
+      "watch": "plugin／marketplace 格式、enabledPlugins、LSP 與 MCP 元件",
+      "affects": ["setup/capabilities.py", "manifest/skills.json"],
+      "last_checked": "2026-09-06",
+      "last_seen": "installed_plugins.json v2、enabledPlugins 布林開關"
+    },
+    {
+      "id": "claude-code-changelog",
+      "url": "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md",
+      "watch": "Claude Code 新指令、hook 事件、設定欄位、棄用項",
+      "affects": ["claude/CLAUDE.md", "claude/hooks/", "manifest/settings.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "2.1.267"
+    },
+    {
+      "id": "claude-plugins-official",
+      "url": "https://github.com/anthropics/claude-plugins-official",
+      "watch": "官方 marketplace 新增／移除的 plugin；已裝項目版本",
+      "affects": ["manifest/skills.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "typescript-lsp 1.0.0、context7、hookify、claude-md-management、frontend-design 已納管"
+    },
+    {
+      "id": "vercel-agent-skills",
+      "url": "https://github.com/vercel-labs/agent-skills",
+      "watch": "web-design-guidelines 更新；react-best-practices 是否納入",
+      "affects": ["manifest/skills.json"],
+      "last_checked": "2026-09-14",
+      "last_seen": "063bee9；react-best-practices 未納入（候選）"
+    }
+  ]
+}
