@@ -7,7 +7,7 @@
 | 東西 | 是什麼 | 部署到哪 |
 |---|---|---|
 | router | `CLAUDE.md`、`AGENTS.md`，工具每次開 session 自動讀的入口 | `~/.claude/`、`~/.codex/` |
-| 憲法（governance） | 委派、判斷、安全、工程等規則，router 依情境路由過去讀 | `~/.ai-global/governance/` |
+| 憲法（governance） | 委派、判斷、安全、工程等規則，router 依情境路由過去讀。有自己的索引 [governance/README.md](governance/README.md)，使用者手冊在 [governance/USER-GUIDE.md](governance/USER-GUIDE.md) | `~/.ai-global/governance/` |
 | 自製能力 | `/ai-global` skill、hooks、statusline | `~/.claude/` |
 | 第三方清單（manifest） | 該裝哪些 skills／plugins、版本多少 | 不部署，只用來對帳 |
 
@@ -197,7 +197,7 @@ claude/statusline.sh         狀態列                   → ~/.claude/statuslin
 claude/hooks/                cleanup-orphans.{sh,ps1} → ~/.claude/hooks/
 claude/skills/ai-global/     /ai-global skill         → ~/.claude/skills/ai-global/
 codex/AGENTS.md              Codex router             → ~/.codex/AGENTS.md
-governance/                  憲法                     → ~/.ai-global/governance/
+governance/                  憲法（README.md 是索引，USER-GUIDE.md 給使用者）→ ~/.ai-global/governance/
 manifest/                    skills.json（第三方清單）、settings.json（共用設定）、sources.json（evolve 核對來源）
 docs/reference/              agent-runtime.md（工具機制）、governance-evaluation.md（驗收情境）
 docs/reports/                evolve 產出的報告
@@ -236,7 +236,7 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 ## 已知邊界
 
 - Markdown 是約定，不是隔離：`govcheck` 只驗「檔在、內容對」，不驗「這個 session 真的讀了、照做了」。真正的強制在 sandbox／permissions／hooks／CI；見 [驗收情境](docs/reference/governance-evaluation.md)、[執行環境參考](docs/reference/agent-runtime.md)。
-- 能力清單只涵蓋認得出來的本機來源；Codex plugin 沒有可靠的安裝登錄，安裝狀態會顯示「未知」。
+- 能力清單只涵蓋認得出來的本機來源；安裝狀態靠 `claude plugin list`／`codex plugin list`，CLI 不在 PATH 上時顯示「未知」。
 - manifest 的 Codex 設定只共用 `personality`；`model`／`model_reasoning_effort` 各機器自己決定。
 
 ## 紅線

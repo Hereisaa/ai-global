@@ -17,7 +17,7 @@ python setup/capabilities.py enable --tool claude --kind skill --id <ID>
 
 本機偏好保留在該機器，align 不重設。更改專案預設屬另一次 manifest 變更；只有使用者要求才處理，不把本機選擇自動納管或寫入記憶。
 
-清單僅涵蓋使用者全域層，不含 project/system 層（專案 `.claude/settings.json` 的 `enabledPlugins` 可覆蓋使用者層，進入專案時另看）；插件內 skills 隨插件開關。Claude plugin 的安裝狀態以 `claude plugin list` 交叉驗證登錄檔（`installed_plugins.json` 未文件化）：已停用的 plugin 不會被 CLI 列出，要卸載須先 enable 再 uninstall，或直接改 `enabledPlugins` 並把快取移到 trash。Codex 插件缺少可靠安裝登錄時顯示安裝未知，不把已設定 enabled 當成已安裝。Claude 插件用原生 enabledPlugins；Codex 用 config.toml 的 plugins 與 skills.config（Python 3.11+）；Claude 獨立能力停用至 `~/.claude/ai-global-disabled/{skills,commands}/<name>`。設定備份在 `~/.ai-trash/ai-global-settings-<唯一值>/`，不輸出內容。
+清單僅涵蓋使用者全域層，不含 project/system 層（專案 `.claude/settings.json` 的 `enabledPlugins` 可覆蓋使用者層，進入專案時另看）；插件內 skills 隨插件開關。Claude plugin 的安裝狀態以 `claude plugin list` 交叉驗證登錄檔（`installed_plugins.json` 未文件化）：已停用的 plugin 不會被 CLI 列出，要卸載須先 enable 再 uninstall，或直接改 `enabledPlugins` 並把快取移到 trash。Codex plugin 的安裝與版本來自 `codex plugin list`；CLI 不可用時顯示安裝未知，不把已設定 enabled 當成已安裝。Claude 插件用原生 enabledPlugins；Codex 用 config.toml 的 plugins 與 skills.config（Python 3.11+）；Claude 獨立能力停用至 `~/.claude/ai-global-disabled/{skills,commands}/<name>`。設定備份在 `~/.ai-trash/ai-global-settings-<唯一值>/`，不輸出內容。
 
 設定參考：[Codex 設定參考](https://learn.chatgpt.com/docs/config-file/config-reference)、[Claude 插件參考](https://code.claude.com/docs/en/plugins-reference)。Codex 插件開關格式是本機已觀察並由 CLI 支援的格式，不宣稱是所有版本通用的官方 schema；不支援的格式回報限制。
 

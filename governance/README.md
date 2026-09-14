@@ -1,4 +1,4 @@
-# agent-governance — AI 代理制度索引
+# governance — AI 代理制度索引
 
 > 外部參考路徑：本檔的 `../` 連結以 ai-global clone 的 `governance/` 為基準；部署副本請先從 `~/.ai-global/.deploy-state.json` 取得 `source_repo` 再解析。只在任務需要時讀取，不遞迴載入。
 
@@ -30,3 +30,4 @@
 - 2026-09-06 精簡為職責索引；新增執行環境參考，明定備份只供歷史查考。
 - 2026-09-14 外部參考按需從 source_repo 解析，避免部署端斷鏈與無關讀取（Codex，使用者授權）。
 - 2026-09-14 移除 `backups/` 目錄，歷史改查 Git；新增 `/ai-global evolve`（Opus 5，使用者授權）
+- 2026-09-15 標題去掉舊 repo 名 agent-governance（Fable 5.1，使用者授權）
