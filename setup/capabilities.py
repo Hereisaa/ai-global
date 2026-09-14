@@ -12,6 +12,7 @@ import re
 import shutil
 import sys
 import tomllib
+import unicodedata
 import uuid
 
 
@@ -263,6 +264,27 @@ def toggle(repo, home, tool, kind, identifier, enabled):
     return f"已{'啟用' if enabled else '停用'}使用者層設定：{identifier}；備份 {backup}。請重新載入或重啟工具確認；專案或管理政策可能覆蓋。"
 
 
+def display_width(text):
+    """Count terminal columns for ordinary Latin/CJK text and combining marks."""
+    return sum(0 if unicodedata.combining(char) else
+               2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+               for char in text)
+
+
+def capability_table(rows):
+    cells = [["工具", "種類", "ID", "來源", "專案預設", "安裝", "本機開關"]]
+    label = lambda value: "未知" if value is None else ("是" if value else "否")
+    for row in rows:
+        cells.append([row["tool"], row["kind"], row["id"],
+                      "專案預設" if row["origin"] == "project-default" else "本機既有",
+                      label(row["default_enabled"]), label(row["installed"]), label(row["enabled"])])
+    widths = [max(display_width(cell) for cell in column) for column in zip(*cells)]
+    lines = ["  ".join(cell + " " * (width - display_width(cell))
+                       for cell, width in zip(row, widths)).rstrip() for row in cells]
+    lines.insert(1, "  ".join("-" * width for width in widths))
+    return "\n".join(lines)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description="列出專案預設與本機既有能力，明確開關使用者層設定")
     parser.add_argument("action", choices=("list", "enable", "disable"))
@@ -284,10 +306,7 @@ def main(argv=None):
             if args.json:
                 print(json.dumps(rows, ensure_ascii=False, indent=2))
             else:
-                print("工具\t種類\tID\t來源\t專案預設\t安裝\t本機開關")
-                label = lambda v: "未知" if v is None else ("是" if v else "否")
-                for r in rows:
-                    print("\t".join((r["tool"], r["kind"], r["id"], "專案預設" if r["origin"] == "project-default" else "本機既有", label(r["default_enabled"]), label(r["installed"]), label(r["enabled"]))))
+                print(capability_table(rows))
                 print("唯讀；使用者層設定不等於當次載入。插件內 skills 隨 plugin 控制；其他專案／系統／管理層未枚舉。")
         return 0
     except (ControlError, OSError) as exc:

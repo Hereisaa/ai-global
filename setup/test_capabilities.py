@@ -1,6 +1,8 @@
 """Isolated fixtures are retained in the OS temp directory; no user settings touched."""
 
 import copy
+from contextlib import redirect_stdout
+import io
 import json
 from pathlib import Path
 import tempfile
@@ -43,6 +45,36 @@ class CapabilityTests(unittest.TestCase):
         before = sorted(self.root.rglob("*"))
         self.rows()
         self.assertEqual(before, sorted(self.root.rglob("*")))
+
+    def test_table_aligns_terminal_columns_with_cjk_and_long_ids(self):
+        rows = [dict(tool="claude", kind="skill", id="短名", origin="project-default",
+                     default_enabled=True, installed=True, enabled=False),
+                dict(tool="codex", kind="plugin", id="long-plugin-name@marketplace",
+                     origin="local-existing", default_enabled=None, installed=None, enabled=True)]
+        lines = cap.capability_table(rows).splitlines()
+        self.assertNotIn("\t", "\n".join(lines))
+        offsets = []
+        for line, markers in ((lines[0], ["種類", "ID", "來源", "專案預設", "安裝", "本機開關"]),
+                              (lines[2], ["skill", "短名", "專案預設", "是", "是", "否"]),
+                              (lines[3], ["plugin", "long-plugin-name@marketplace", "本機既有", "未知", "未知", "是"])):
+            start = 0
+            positions = []
+            for marker in markers:
+                pos = line.index(marker, start)
+                positions.append(cap.display_width(line[:pos]))
+                start = pos + len(marker)
+            offsets.append(positions)
+        self.assertEqual(offsets[0], offsets[1])
+        self.assertEqual(offsets[0], offsets[2])
+        self.assertIn(rows[1]["id"], lines[3])
+        self.assertEqual(cap.display_width("中文Ａe\u0301"), 7)
+
+    def test_empty_table_keeps_header_and_json_output_remains_parseable(self):
+        self.assertEqual(len(cap.capability_table([]).splitlines()), 2)
+        with redirect_stdout(io.StringIO()) as output:
+            result = cap.main(["list", "--repo", str(self.repo), "--home", str(self.home), "--json"])
+        self.assertEqual(result, 0)
+        self.assertIsInstance(json.loads(output.getvalue()), list)
 
     def test_claude_skill_and_command_roundtrip_preserves_bytes(self):
         for kind, folder, filename in (("skill", "skills", "owned/SKILL.md"), ("command", "commands", "extra.md")):
