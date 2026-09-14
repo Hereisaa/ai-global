@@ -124,11 +124,11 @@
     {
       "name": "frontend-design",
       "type": "plugin",
-      "source": "marketplace claude-plugins-official",
+      "source": "marketplace github:anthropics/claude-plugins-official",
       "tool": "codex",
       "id": "frontend-design@claude-plugins-official",
       "default_enabled": true,
-      "note": "codex plugin add frontend-design@claude-plugins-official; Codex reads Claude marketplace format"
+      "note": "Codex reads Claude marketplace format but does not ship this marketplace; github: source makes align register it (codex plugin marketplace add owner/repo) before codex plugin add"
     },
     {
       "name": "ui-ux-pro-max",
@@ -153,7 +153,7 @@
     {
       "name": "context7",
       "type": "plugin",
-      "source": "marketplace claude-plugins-official",
+      "source": "marketplace github:anthropics/claude-plugins-official",
       "tool": "codex",
       "id": "context7@claude-plugins-official",
       "default_enabled": true,
