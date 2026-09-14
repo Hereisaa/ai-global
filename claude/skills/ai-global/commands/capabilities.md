@@ -21,4 +21,4 @@ python setup/capabilities.py enable --tool claude --kind skill --id <ID>
 
 設定參考：[Codex 設定參考](https://learn.chatgpt.com/docs/config-file/config-reference)、[Claude 插件參考](https://code.claude.com/docs/en/plugins-reference)。Codex 插件開關格式是本機已觀察並由 CLI 支援的格式，不宣稱是所有版本通用的官方 schema；不支援的格式回報限制。
 
-使用者要方向鍵／空白鍵互動選單時，使用 manage，不以 list 代替。這需要真正的互動 Terminal 與 `setup/requirements-tui.txt` 套件；以 README 的 .venv 安裝方式準備，然後提供使用者啟動指令。不要在不支援互動的工具管線中等待鍵盤輸入。`--demo` 不讀寫本機能力設定；實際模式空白鍵只預選，Enter 才授權套用所選變更，Esc／Ctrl+C 放棄預選。未安裝或開關未知不可切換；套用失敗需交代已完成與未套用項目。
+使用者要方向鍵／空白鍵互動選單時，使用 manage，不以 list 代替。這需要真正的互動 Terminal 與 `setup/requirements-tui.txt` 套件；`.venv` 由第一次 `align` 自動建立（README「環境需求」）；提供使用者啟動指令時用 `.venv/bin/python`（Windows `.venv\Scripts\python`）。不要在不支援互動的工具管線中等待鍵盤輸入。`--demo` 不讀寫本機能力設定；實際模式空白鍵只預選，Enter 才授權套用所選變更，Esc／Ctrl+C 放棄預選。未安裝或開關未知不可切換；套用失敗需交代已完成與未套用項目。
