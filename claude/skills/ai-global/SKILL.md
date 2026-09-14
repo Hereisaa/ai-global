@@ -1,20 +1,21 @@
 ---
 name: ai-global
-description: ai-global 全域 AI 環境的部署與同步。使用者說「ai-global」「部署」「同步」「對帳 AI 環境」時使用。不帶參數先列指令清單讓使用者選；選定或帶參數後才讀該指令的流程檔。
-argument-hint: "[check | sync | deploy | govcheck | install <name>]"
+description: 僅在使用者明確要求部署、同步、對帳 ai-global 管理的 AI 開發環境，或查看及切換該環境的 skills/plugins/commands 時使用。一般網站部署、資料同步、純介紹或規則審查不觸發。
+argument-hint: "[check | sync | deploy | govcheck | capabilities [list | manage | enable | disable] | install <name> | evolve [source-id]]"
 ---
 
 # ai-global
 
 | 指令 | 做什麼 | 動檔案？ |
 |---|---|---|
-| `check` | 唯讀對帳：部署漂移、治理檢查、第三方能力、settings 共用項 | 否 |
-| `sync` | 另一台改了：pull → check → 裁決 → install → 對帳 | 是（每步確認） |
-| `deploy` | 首次或重新部署這台（不 pull） | 是 |
-| `govcheck` | 只跑 `check_governance.py`，改完 router／制度檔後用 | 否 |
-| `install <name>` | 補裝 manifest 裡指定的一項 | 只該項 |
+| `check` | 對帳部署漂移、治理、能力與共用設定 | 否 |
+| `sync` | pull → check → 必要裁決 → 部署 → 對帳 | 是，既有授權內連續執行 |
+| `deploy` | 首次或重新部署本機，不 pull | 是 |
+| `govcheck` | 治理結構與本機檢查 | 否 |
+| `capabilities` | 列出專案預設、本機既有能力與啟用狀態；可指定開關或開啟互動模式 | list 否，開關只改指定項 |
+| `install <name>` | 明確補裝清單中的指定能力 | 只該項 |
+| `evolve [source-id]` | 核對 `manifest/sources.json` 的官方文件與 marketplace 是否有變，產出 harness 審查報告 | 只寫報告與核對日期 |
 
-**`$ARGUMENTS` 為空** → 立刻用 AskUserQuestion 列出前四項（description 用上表「做什麼」），並提醒 `install` 要帶名稱。不做任何其他事、不猜意圖。
-**有參數**（或使用者選定後）→ 讀 `commands/<指令>.md` 照做；不認得的參數 → 列上表請重選。
+先依參數或明確自然語言分派，只讀對應流程；已有上下文不再列選單。單獨輸入 `/ai-global` 且無法判斷意圖，或參數無法識別時，列上表請使用者指定。
 
-流程檔：[check](commands/check.md)、[sync](commands/sync.md)、[deploy](commands/deploy.md)、[govcheck](commands/govcheck.md)、[install](commands/install.md)；共用背景在 [common](commands/common.md)。
+流程：[check](commands/check.md)、[sync](commands/sync.md)、[deploy](commands/deploy.md)、[govcheck](commands/govcheck.md)、[capabilities](commands/capabilities.md)、[install](commands/install.md)、[evolve](commands/evolve.md)。[common](commands/common.md) 同一對話未變更只讀一次，引用不要求載入其他流程。

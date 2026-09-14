@@ -10,14 +10,14 @@
 #   repo\codex\*      -> %USERPROFILE%\.codex\*
 #
 # Usage: powershell -ExecutionPolicy Bypass -File setup\install.ps1 [-Mode install|check]
-param([ValidateSet("install", "check")][string]$Mode = "install")
+param([ValidateSet("install", "check")][string]$Mode = "install", [string]$TargetHome = $env:USERPROFILE)
 $ErrorActionPreference = "Stop"
 
 $Repo   = Split-Path -Parent $PSScriptRoot
-$H      = $env:USERPROFILE
+$H      = [System.IO.Path]::GetFullPath($TargetHome)
 $Global = Join-Path $H ".ai-global"
 $State  = Join-Path $Global ".deploy-state.json"
-$Trash  = Join-Path $H (".ai-trash\ai-global-deploy-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+$Trash  = Join-Path $H (".ai-trash\ai-global-deploy-" + (Get-Date -Format "yyyyMMdd-HHmmss") + "-" + [guid]::NewGuid().ToString('N'))
 $script:Fail = 0
 
 # State from the previous deploy on this machine (~/.ai-global/.deploy-state.json):
@@ -72,14 +72,6 @@ function Test-SameContent($A, $B) {
 function Move-ToTrash($P) {
   $item = Get-Existing $P
   if (-not $item) { return }
-  if ($item.LinkType) {
-    # A symlink/junction carries no data of its own: drop the link, keep whatever
-    # it pointed at. Nothing recoverable is lost, so this needs no trash copy.
-    if ($item.PSIsContainer) { [System.IO.Directory]::Delete($item.FullName) }
-    else { [System.IO.File]::Delete($item.FullName) }
-    Write-Host "UNLINK  $P (link left by an older install)"
-    return
-  }
   $label = $item.FullName
   if ($label.StartsWith($H, [StringComparison]::OrdinalIgnoreCase)) {
     $label = $label.Substring($H.Length).TrimStart('\')
@@ -87,8 +79,13 @@ function Move-ToTrash($P) {
     $label = Split-Path $label -Leaf
   }
   $dest = Join-Path $Trash $label
+  if (-not $item.FullName.StartsWith($H.TrimEnd('\') + '\', [StringComparison]::OrdinalIgnoreCase)) {
+    throw "Trash source is outside the selected home"
+  }
   New-Item -ItemType Directory -Force -Path (Split-Path $dest -Parent) | Out-Null
-  Move-Item -LiteralPath $item.FullName -Destination $dest
+  if (Get-Existing $dest) { throw "Trash destination already exists" }
+  if ($item.PSIsContainer) { [System.IO.Directory]::Move($item.FullName, $dest) }
+  else { [System.IO.File]::Move($item.FullName, $dest) }
 }
 
 function Get-Status($Rel, $Dst) {
@@ -146,10 +143,7 @@ function PutDir($Rel, $Dst) {
     }
   }
   $srcRoot = (Resolve-Path -LiteralPath $src).Path
-  $skip    = Join-Path $srcRoot "backups"
   foreach ($f in Get-ChildItem -LiteralPath $srcRoot -Recurse -File) {
-    if ($f.Name -eq ".gitkeep") { continue }
-    if ($f.FullName.StartsWith($skip, [StringComparison]::OrdinalIgnoreCase)) { continue }
     $sub = $f.FullName.Substring($srcRoot.Length).TrimStart('\').Replace('\', '/')
     Put "$Rel/$sub" (Join-Path $Dst $sub)
   }
@@ -193,10 +187,22 @@ Put    "codex/AGENTS.md"      "$H\.codex\AGENTS.md"
 # Repo-owned skills/commands/agents are deployed item by item so third-party
 # installs keep coexisting in the same parent directories.
 Get-ChildItem -LiteralPath "$Repo\claude\skills" -Directory -ErrorAction SilentlyContinue |
-  ForEach-Object { PutDir "claude/skills/$($_.Name)" "$H\.claude\skills\$($_.Name)"; $script:Managed.Add("claude/skills/$($_.Name)") }
+  ForEach-Object {
+    if (Test-Path -LiteralPath "$H\.claude\ai-global-disabled\skills\$($_.Name)") {
+      Write-Host "DISABLED claude/skills/$($_.Name) - preserving local choice"
+      PutDir "claude/skills/$($_.Name)" "$H\.claude\ai-global-disabled\skills\$($_.Name)"
+    } else { PutDir "claude/skills/$($_.Name)" "$H\.claude\skills\$($_.Name)" }
+    $script:Managed.Add("claude/skills/$($_.Name)")
+  }
 Get-ChildItem -LiteralPath "$Repo\claude\commands" -File -ErrorAction SilentlyContinue |
   Where-Object Name -ne ".gitkeep" |
-  ForEach-Object { Put "claude/commands/$($_.Name)" "$H\.claude\commands\$($_.Name)"; $script:Managed.Add("claude/commands/$($_.Name)") }
+  ForEach-Object {
+    if (Test-Path -LiteralPath "$H\.claude\ai-global-disabled\commands\$($_.Name)") {
+      Write-Host "DISABLED claude/commands/$($_.Name) - preserving local choice"
+      Put "claude/commands/$($_.Name)" "$H\.claude\ai-global-disabled\commands\$($_.Name)"
+    } else { Put "claude/commands/$($_.Name)" "$H\.claude\commands\$($_.Name)" }
+    $script:Managed.Add("claude/commands/$($_.Name)")
+  }
 Get-ChildItem -LiteralPath "$Repo\claude\agents" -File -ErrorAction SilentlyContinue |
   Where-Object Name -ne ".gitkeep" |
   ForEach-Object { Put "claude/agents/$($_.Name)" "$H\.claude\agents\$($_.Name)"; $script:Managed.Add("claude/agents/$($_.Name)") }
@@ -255,8 +261,12 @@ $hookDir = Join-Path $Repo ".git\hooks"
 if (Test-Path -LiteralPath $hookDir) {
   $utf8 = New-Object System.Text.UTF8Encoding $false
   $msg  = "ai-global: pull done -> run setup/install.ps1 -Mode check (or /ai-global in Claude Code)"
-  [System.IO.File]::WriteAllText((Join-Path $hookDir "post-merge"),   "#!/bin/sh`necho '$msg'`n", $utf8)
-  [System.IO.File]::WriteAllText((Join-Path $hookDir "post-rewrite"), "#!/bin/sh`n[ `"`$1`" = rebase ] && echo '$msg'`nexit 0`n", $utf8)
+  if (-not (Get-Existing (Join-Path $hookDir "post-merge"))) {
+    [System.IO.File]::WriteAllText((Join-Path $hookDir "post-merge"), "#!/bin/sh`necho '$msg'`n", $utf8)
+  }
+  if (-not (Get-Existing (Join-Path $hookDir "post-rewrite"))) {
+    [System.IO.File]::WriteAllText((Join-Path $hookDir "post-rewrite"), "#!/bin/sh`n[ `"`$1`" = rebase ] && echo '$msg'`nexit 0`n", $utf8)
+  }
 }
 
 if (Test-Path -LiteralPath $Trash) {

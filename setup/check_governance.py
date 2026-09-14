@@ -2,8 +2,9 @@
 """Read-only checks, Python 3.9+, standard library only.
 
 Require two routers, ten governance documents, root README, runtime reference,
-and the ai-global skill. Check links in those files and current governance/*.md
-and docs/reference/*.md only; never recursively scan the repository or backups.
+and the ai-global skill. Check links in those files and current governance/*.md,
+docs/reference/*.md and ai-global commands/*.md only; never recursively scan
+the repository.
 
 The two routers are parallel, not identical: they must share the same `##`
 section order (Claude may add its Cowork section) and each must carry its own
@@ -12,6 +13,7 @@ so it is checked explicitly.
 """
 
 import argparse
+from datetime import date
 import json
 from pathlib import Path
 import re
@@ -34,6 +36,7 @@ TOOL_PREFIX = {"codex/AGENTS.md": "codex/<主題>", "claude/CLAUDE.md": "claude/
 CLAUDE_ONLY_SECTIONS = ("## Cowork / 多端一致",)
 RUNTIME_DOC = "docs/reference/agent-runtime.md"
 SYNC_SKILL = "claude/skills/ai-global/SKILL.md"
+SOURCES_FILE = "manifest/sources.json"
 GOVERNANCE_DOCUMENTS = GOVERNANCE_FILES + ("README.md", "USER-GUIDE.md")
 REQUIRED_DOCUMENTS = ROUTERS + tuple("governance/" + name for name in GOVERNANCE_DOCUMENTS) + (
     "README.md", RUNTIME_DOC, SYNC_SKILL,
@@ -133,15 +136,21 @@ class Checks:
             self.report("FAIL", f"文件缺少首行標題：{name}")
         return text
 
-    def links(self, path, name, text):
+    def links(self, path, name, text, deployed=False, source_repo=None):
         for number, target in markdown_targets(text):
             parsed = urlsplit(target)
             relative = unquote(parsed.path)
             if parsed.scheme or parsed.netloc or not relative:
                 continue
-            if relative.startswith(("/", "~")) or "backups" in Path(relative).parts:
+            if relative.startswith(("/", "~")):
                 continue
-            if not (path.parent / relative).exists():
+            base = path.parent
+            if deployed and relative.startswith("../"):
+                if source_repo is None:
+                    self.report("WARN", f"無法驗證跨目錄連結（部署 state 的 source_repo 不可用）：{name}:{number}，{relative}")
+                    continue
+                base = source_repo / "governance"
+            if not (base / relative).exists():
                 self.report("FAIL", f"相對連結斷鏈：{name}:{number}，{relative}")
 
     def routers(self, documents):
@@ -172,7 +181,7 @@ class Checks:
 
     def repository(self, root):
         names = set(REQUIRED_DOCUMENTS)
-        for directory in ("governance", "docs/reference"):
+        for directory in ("governance", "docs/reference", "claude/skills/ai-global/commands"):
             names.update(path.relative_to(root).as_posix() for path in (root / directory).glob("*.md"))
         documents = {name: self.document(root / name, name) for name in sorted(names)}
         for name, text in documents.items():
@@ -182,7 +191,7 @@ class Checks:
                 self.budget(name, text, GOVERNANCE_LINE_BUDGET)
             self.links(root / name, name, text)
         if not self.exit_code:
-            self.report("PASS", "文件內容與連結有效：兩個 router、十份必要治理文件、根 README、runtime、ai-global skill，以及 governance 與 docs/reference 直層 Markdown；未掃描 backups")
+            self.report("PASS", "文件內容與連結有效：兩個 router、十份必要治理文件、根 README、runtime、ai-global skill 與 commands，以及 governance 與 docs/reference 直層 Markdown")
         self.routers(documents)
         manifest = self.json_object(root / "manifest/settings.json")
         if manifest is not None:
@@ -199,7 +208,36 @@ class Checks:
                         valid = False
             if valid:
                 self.report("PASS", "manifest 白名單設定結構有效")
+        self.sources(root)
         return manifest
+
+    def sources(self, root, today=None):
+        """evolve 的核對來源：結構有效，且 last_checked 未超過 stale_days。"""
+        data = self.json_object(root / SOURCES_FILE)
+        if data is None:
+            return
+        stale_days = data.get("stale_days")
+        entries = data.get("sources")
+        if type(stale_days) is not int or stale_days <= 0 or not isinstance(entries, list):
+            self.report("FAIL", f"{SOURCES_FILE} 需要正整數 stale_days 與 sources 清單")
+            return
+        today = today or date.today()
+        stale = []
+        for entry in entries:
+            if not isinstance(entry, dict) or not all(isinstance(entry.get(k), str) and entry[k] for k in ("id", "url", "last_checked")):
+                self.report("FAIL", f"{SOURCES_FILE} 每筆需要非空 id、url、last_checked")
+                return
+            try:
+                checked = date.fromisoformat(entry["last_checked"])
+            except ValueError:
+                self.report("FAIL", f"{SOURCES_FILE} last_checked 需為 YYYY-MM-DD：{entry['id']}")
+                return
+            if (today - checked).days > stale_days:
+                stale.append(f"{entry['id']}（{entry['last_checked']}）")
+        if stale:
+            self.report("WARN", f"核對來源超過 {stale_days} 天未核對，建議執行 /ai-global evolve：{'、'.join(stale)}")
+        else:
+            self.report("PASS", f"{len(entries)} 個核對來源皆在 {stale_days} 天內核對過")
 
     def deployment(self, source, target, directory=False):
         # Deployed files are copies by design; a link here is a leftover from the
@@ -250,11 +288,35 @@ class Checks:
             return None
         return {key: config[key] for key in SETTINGS_KEYS["codex_config"] if key in config}
 
+    def deployed_links(self, home):
+        state = self.json_object(home / ".ai-global/.deploy-state.json", required=False)
+        source_repo = None
+        if state is not None:
+            source = state.get("source_repo")
+            if not isinstance(source, str) or not source.strip():
+                self.report("WARN", "部署 state 缺少有效 source_repo；跨目錄治理連結無法驗證")
+            else:
+                candidate = Path(source)
+                if not candidate.is_absolute() or not candidate.is_dir():
+                    self.report("WARN", "部署 state 的 source_repo 必須是存在的絕對目錄；跨目錄治理連結無法驗證")
+                else:
+                    source_repo = candidate
+        for path in (home / DEPLOYED_GOVERNANCE).glob("*.md"):
+            text = self.read(path, required=False)
+            if text is not None:
+                self.links(path, str(path), text, deployed=True, source_repo=source_repo)
+
     def local(self, root, home, manifest):
         self.deployment(root / ROUTERS[0], home / ".codex/AGENTS.md")
         self.deployment(root / ROUTERS[1], home / ".claude/CLAUDE.md")
         self.deployment(root / "governance", home / DEPLOYED_GOVERNANCE, directory=True)
-        self.deployment(root / SYNC_SKILL, home / ".claude/skills/ai-global/SKILL.md")
+        active = home / ".claude/skills/ai-global/SKILL.md"
+        disabled = home / ".claude/ai-global-disabled/skills/ai-global/SKILL.md"
+        if active.exists() and disabled.exists():
+            self.report("WARN", "ai-global skill 同時存在啟用與停用副本；請用能力清單對帳")
+        target = active if active.exists() or not disabled.exists() else disabled
+        self.deployment(root / SYNC_SKILL, target)
+        self.deployed_links(home)
         if (home / ".codex/AGENTS.override.md").exists():
             self.report("WARN", "本地存在 Codex AGENTS.override.md，會覆蓋全域 router")
         if (home / ".claude/settings.local.json").exists():

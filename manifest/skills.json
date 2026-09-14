@@ -1,15 +1,157 @@
 {
-  "_readme": "Third-party capabilities expected on every machine. Not stored in this repo because their upstream is alive; reinstall from source. Reconcile with /ai-global. Types: skill = dir under ~/.claude/skills/; plugin = Claude Code plugin; command = file under ~/.claude/commands/.",
+  "_readme": "專案預設能力與建議開關；不覆蓋本機選擇、不自動安裝。tool/type/id 為唯一識別，default_enabled 是建議值。第三方 version 未列者不保證版本可重現。收錄準則：只收模型本身沒有的東西（專案路由、即時文件、真實工具、隨附資料、harness 強制），不收教方法論的流程模板；觸發詞重疊的能力只留一個。",
   "items": [
-    { "name": "gsap-skills", "type": "plugin", "source": "marketplace github:greensock/gsap-skills", "license": "MIT", "note": "official set of 8 skills (core/timeline/scrolltrigger/plugins/react/frameworks/performance/utils)", "version": "1.0.0" },
-    { "name": "beautiful-article", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "0.1.0" },
-    { "name": "gpt-image-2", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.0.4" },
-    { "name": "kb-retriever", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.0.1" },
-    { "name": "web-design-engineer", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.3.0" },
-    { "name": "web-video-presentation", "type": "skill", "source": "github:ConardLi/garden-skills", "version": "1.2.2" },
-    { "name": "taste-skill", "type": "skill", "source": "github:Leonxlnx/taste-skill" },
-    { "name": "ui-styling", "type": "skill", "source": "github:mrgoonie/claudekit-skills", "path": "plugins/web-dev-tools/skills/ui-styling", "version": "1.0.0" },
-    { "name": "ui-ux-pro-max", "type": "plugin", "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill", "version": "2.13.0" },
-    { "name": "web-interface-guidelines", "type": "command", "source": "github:vercel-labs/web-interface-guidelines", "target": "~/.claude/commands/web-interface-guidelines.md" }
+    {
+      "name": "ai-global",
+      "type": "skill",
+      "tool": "claude",
+      "id": "ai-global",
+      "default_enabled": true,
+      "source": "repo:claude/skills/ai-global"
+    },
+    {
+      "name": "kb-retriever",
+      "type": "skill",
+      "source": "github:ConardLi/garden-skills",
+      "version": "1.0.1",
+      "tool": "claude",
+      "id": "kb-retriever",
+      "default_enabled": true,
+      "note": "local knowledge-base retrieval with PDF/Excel handling; used by knowledge-vault"
+    },
+    {
+      "name": "web-design-guidelines",
+      "type": "skill",
+      "source": "github:vercel-labs/agent-skills",
+      "path": "skills/web-design-guidelines",
+      "tool": "claude",
+      "id": "web-design-guidelines",
+      "default_enabled": true,
+      "note": "Vercel official; fetches latest Web Interface Guidelines at review time. Replaces the static web-interface-guidelines command (removed 2026-09-14)."
+    },
+    {
+      "name": "frontend-design",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "claude",
+      "id": "frontend-design@claude-plugins-official",
+      "default_enabled": true,
+      "note": "CLI counterpart of the desktop built-in anthropic-skills:frontend-design; UI flow = frontend-design produces -> ui-ux-pro-max styles -> web-design-guidelines reviews"
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "type": "plugin",
+      "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill",
+      "version": "2.13.0",
+      "tool": "claude",
+      "id": "ui-ux-pro-max@ui-ux-pro-max-skill",
+      "default_enabled": true,
+      "note": "bundles searchable CSV data (palettes/fonts/UX rules) and its own ui-styling skill; do not install a standalone ui-styling"
+    },
+    {
+      "name": "gsap-skills",
+      "type": "plugin",
+      "source": "marketplace github:greensock/gsap-skills",
+      "license": "MIT",
+      "note": "official set of 8 skills (core/timeline/scrolltrigger/plugins/react/frameworks/performance/utils); animation library choice is governed by 80-engineering",
+      "version": "1.0.0",
+      "tool": "claude",
+      "id": "gsap-skills@gsap-skills",
+      "default_enabled": true
+    },
+    {
+      "name": "typescript-lsp",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "claude",
+      "id": "typescript-lsp@claude-plugins-official",
+      "default_enabled": true,
+      "note": "real type/reference queries for TS projects"
+    },
+    {
+      "name": "context7",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "claude",
+      "id": "context7@claude-plugins-official",
+      "default_enabled": true,
+      "note": "up-to-date library docs lookup (MCP); covers APIs newer than the model cutoff"
+    },
+    {
+      "name": "hookify",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "claude",
+      "id": "hookify@claude-plugins-official",
+      "default_enabled": true,
+      "note": "turn hard constraints (50-safety red lines) into enforced hooks instead of prose"
+    },
+    {
+      "name": "claude-md-management",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "claude",
+      "id": "claude-md-management@claude-plugins-official",
+      "default_enabled": true,
+      "note": "audit CLAUDE.md quality and capture session learnings; supports 40-maintenance"
+    },
+    {
+      "name": "kb-retriever",
+      "type": "skill",
+      "source": "github:ConardLi/garden-skills",
+      "version": "1.0.1",
+      "tool": "codex",
+      "id": ".codex/skills/kb-retriever",
+      "default_enabled": true,
+      "note": "same content as the claude entry"
+    },
+    {
+      "name": "web-design-guidelines",
+      "type": "skill",
+      "source": "github:vercel-labs/agent-skills",
+      "path": "skills/web-design-guidelines",
+      "tool": "codex",
+      "id": ".codex/skills/web-design-guidelines",
+      "default_enabled": true,
+      "note": "same content as the claude entry"
+    },
+    {
+      "name": "frontend-design",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "codex",
+      "id": "frontend-design@claude-plugins-official",
+      "default_enabled": true,
+      "note": "codex plugin add frontend-design@claude-plugins-official; Codex reads Claude marketplace format"
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "type": "plugin",
+      "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill",
+      "version": "2.13.0",
+      "tool": "codex",
+      "id": "ui-ux-pro-max@ui-ux-pro-max-skill",
+      "default_enabled": true,
+      "note": "codex plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill first"
+    },
+    {
+      "name": "gsap-skills",
+      "type": "plugin",
+      "source": "marketplace github:greensock/gsap-skills",
+      "version": "1.0.0",
+      "tool": "codex",
+      "id": "gsap-skills@gsap-skills",
+      "default_enabled": true,
+      "note": "codex plugin marketplace add greensock/gsap-skills first"
+    },
+    {
+      "name": "context7",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "codex",
+      "id": "context7@claude-plugins-official",
+      "default_enabled": true,
+      "note": "Codex loads the plugin's .mcp.json into mcp_servers (verified 2026-09-14 with codex mcp list)"
+    }
   ]
 }

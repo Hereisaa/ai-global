@@ -18,9 +18,9 @@
 | 家目錄 | `/Users/<user>` | `C:\Users\<user>`（Git Bash 下 `/c/Users/<user>`） |
 
 - 寫路徑一律用兩平台都成立的 `$HOME` 相對路徑，不要寫死機器路徑：`~/.ai-global/`（制度檔部署端）、`~/.claude/`、`~/.codex/`、`~/.ai-trash/`（安全刪除暫存區）。
-- 記憶體回收自動化兩台都已就位（macOS `cleanup-orphans.sh`＋launchd agent `com.claude.orphan-cleanup`；Windows `cleanup-orphans.ps1`＋排程工作 `ClaudeCodeOrphanCleanup`；皆為 SessionEnd hook＋每 2h，絕不殺主程序、跳過 remote-control）。那套掛在 Claude Code 側，但使用者回報記憶體爆時**不分工具都先看 `~/.claude/logs/cleanup.log`**，勿重複造輪子；詳見 ai-global README 對應平台節。
+- 記憶體回收：macOS 維持 SessionEnd hook 與 launchd 每 2h；Windows 自 2026-09-08 改為手動，排程與 SessionEnd hook 已移除。Windows 入口為桌面「Claude 清理背景程序.cmd」或 `~/.claude/hooks/cleanup-orphans.ps1 -Scope global`。回報記憶體問題時先看 `~/.claude/logs/cleanup.log`；操作與保護範圍詳見 ai-global README。
 - 各工具的指令載入、記憶與權限機制以當次可用工具與實際設定為準；官方機制整理見 ai-global 的 `docs/reference/agent-runtime.md`（Codex 會先找 `AGENTS.override.md` 再找本檔）。
-- 進入專案先讀該專案根目錄的 `AGENTS.md` 與 `CLAUDE.md`（若存在），確認工作樹，保留未提交變更。
+- 進入專案確認工作樹並保留未提交變更；只補讀尚未載入的適用專案指令。另一工具的入口只在包含共用規則或本次涉及該工具時讀取。
 
 ## 全域設定要改／要同步時
 clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
@@ -29,11 +29,11 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 部署：macOS `bash <repo>/setup/install.sh`；Windows `powershell -ExecutionPolicy Bypass -File <repo>\setup\install.ps1`。
 - 只想看有沒有漂移（不動檔案）：同上加 `check`（macOS `install.sh check`／Windows `-Mode check`）。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
-- `/ai-global` skill（`check`／`sync`／`deploy`／`govcheck`／`install <name>`）是 Claude Code 的，**Codex 這側跑不了**：請使用者去 Claude Code 執行，或照 `<repo>/README.md` 的「給 AI agent 的指引」手動走。
+- `/ai-global` skill（`check`／`sync`／`deploy`／`govcheck`／`capabilities`／`install <name>`／`evolve`）是 Claude Code 的，**Codex 這側跑不了**：請使用者去 Claude Code 執行，或照 `<repo>/README.md` 的「給 AI agent 的指引」手動走。
 - 改了制度檔或 router → 在 `<repo>` 跑 `python setup/check_governance.py`（節次對齊、前綴、路由、連結）。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
-- 開 worktree／分支一律用 **`codex/<主題>`**（Claude Code 側用 `claude/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來，別照抄對面的前綴）。系統自動生成的隨機名開工前提議使用者改名，**不要自行 rename**——session metadata 會對不上。
+- 開 worktree／分支一律用 **`codex/<主題>`**（Claude Code 側用 `claude/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來，別照抄對面的前綴）。接受工具自動生成的分支名，不自行 rename；只有使用者要求整理或名稱妨礙辨識時才提出。
 - 交付與回報一律附上分支名；使用者問「哪個 session 對哪個分支」時查 `git worktree list` 與 session 清單（Codex 側用 `codex resume` 的挑選器），不要憑印象答。
 
 ## 溝通
@@ -44,13 +44,8 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 按任務風險驗證；宣稱完成須附證據，驗收層級以 20 為準。
 
 ## 工程開發與輸出格式（完整原文與適用範圍 → `~/.ai-global/governance/80-engineering.md`）
-- 不留向後相容負擔：直接移除過時路徑與舊碼，不加相容層、fallback、遷移邏輯。
-- 最簡可行實作：滿足當前需求的最簡設計；不過早抽象、不過度配置、不加多餘間接層。
-- 小步迭代：先做最小可行、端到端可運作的版本再疊功能；不為未完成的架構破壞可運作的系統。
-- 模組化與關注點分離：職責邊界清晰、元件相互獨立。
-- 引入新套件或自刻功能前，先完整檢視專案既有依賴與型別定義；優先用成熟且維護良好的函式庫。
-- 設計決策著眼長期維護性，拒絕日後注定重寫的權宜之計（stopgaps）。
-- 程式碼變更類回覆依序輸出：1) 變更摘要（改了什麼、為什麼、解決什麼問題，高層次條列）2) 架構重點與影響（選填、簡短）3) 乾淨可直接上線的程式碼或 diff；省略基礎語法與逐行細節，聚焦行為與架構影響。
+- 工程原則與交付格式以 80 為準：只檢查相關既有能力，移除無需求的舊路徑；必要遷移、相容與備援依實際需求及風險驗證。
+- 回覆先說行為變更與原因，附驗證、限制及分支；已有可讀差異時提供連結與必要片段即可。
 
 ## 安全紅線（違反即事故，無例外時不得便宜行事）
 1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（`os.remove`、`fs.unlink`、PowerShell `Remove-Item` 等）。刪除一律 `mv`／`Move-Item` 到 `~/.ai-trash/` 並加時間戳、避免覆蓋。完整流程與限定例外 → 讀 `~/.ai-global/governance/50-safety.md`。
@@ -58,13 +53,13 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 3. 真實 `.env`、金鑰、憑證：不貼進回覆、不 commit、不傳給外部服務、不寫進 log。無秘密的 `.env.example` 依 50 檢查後才可追蹤。
 
 ## 制度路由（符合情境就先讀對應檔，再動手）
-制度檔在 `~/.ai-global/governance/`：
+制度檔在 `~/.ai-global/governance/`。同一對話已載入且未變更的文件不重讀；只讀當前任務相關段落，引用不代表遞迴載入。文件中的 `../docs/`、`../claude/`、`../codex/`、`../README.md` 指向 clone：以 state 的 `source_repo` 解析，僅在需要該參考時讀取。
 - 每個 session 第一個實質任務開工前 → 讀 `70-behavior-contract.md`（行為契約：怎麼想、怎麼做、怎麼說）；同一對話已讀且未變更不重讀。
 - 任務授權、完成標準、驗證方式、卡住該升級還是換路 → 讀 `20-judgment.md`（唯一責任檔）。
-- 大量探索、可獨立並行的子任務、獨立審查 → 先讀 `10-dispatch.md`（委派規則、model/effort 選擇、驗證規範）；是否委派依收益與可用工具判斷，不用檔數當硬門檻。若本環境沒有子代理機制，仍須遵守其中的「回報合約」與「驗證不自驗」原則（用乾淨的新對話或要求使用者開新 session 驗收亦可）。
+- 大量探索、可獨立並行的子任務、獨立審查 → 先讀 `10-dispatch.md`（委派規則、model/effort 選擇、驗證規範）；是否委派依收益與可用工具判斷，不用檔數當硬門檻。獨立審查是否必要及不可得時的處置統一依 20。
 - 要寫派工 prompt（給子代理，或給另一個 session／另一個工具）→ 用 `30-templates.md` 的模板。
 - 涉及刪除、秘密、重要檔案備份、不可逆／對外操作 → 讀 `50-safety.md`。
-- 開新專案、把既有專案納入管理、或在任何專案**新增文件**（spec、plan、報告、參考文件）→ 讀 `60-project-bootstrap.md`（三級制起手式、文件存放與命名規範，不要自行發明）。
+- 開新專案或把既有專案納入管理 → 讀 `60-project-bootstrap.md`；既有專案新增文件只按需讀「文件存放與命名規範」，已有明確慣例則沿用。
 - 寫程式、重構、選依賴 → `80-engineering.md`。
 - 要修改本檔或任何制度檔 → 先讀 `40-maintenance.md`。
 - 制度總覽 → `README.md`。
@@ -90,3 +85,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-07 `sync-check` skill 改名為 `ai-global`；`manifest/` 不再部署到 `~/.ai-global`（Fable 5.1，應使用者要求）
 - 2026-09-07 部署狀態改記檔案雜湊（`files`）與管理清單（`managed`）；`~/.ai-global` 頂層只允許 governance 與 state（Fable 5.1）
 - 2026-09-07 合併 `claude/governance-refresh`（憲法優化）：授權／完成／驗收統一由 20 定義、push 需明確授權、委派不用檔數硬門檻、優先序加入平台層與同層衝突原則、補 50 與 80 路由、指向 `docs/reference/agent-runtime.md`；大綱維持本檔既有節次（Fable 5.1）
+- 2026-09-14 縮小讀取範圍、對齊 80 工程規則、移除低風險重問與改名要求，補能力開關入口及 Windows 手動清理決策（Codex，使用者授權）。

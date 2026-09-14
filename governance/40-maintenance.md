@@ -1,5 +1,7 @@
 # 40 — 制度維護協議
 
+> 外部參考路徑：本檔的 `../` 連結以 ai-global clone 的 `governance/` 為基準；部署副本請先從 `~/.ai-global/.deploy-state.json` 取得 `source_repo` 再解析。只在任務需要時讀取，不遞迴載入。
+
 > 適用於全域／專案指令與本目錄的修改。授權與驗收統一見 [20-judgment.md](20-judgment.md)，安全細則見 [50-safety.md](50-safety.md)。
 
 ## 授權與範圍
@@ -11,9 +13,9 @@
 
 ## 可回復的修改
 
-1. 確認目前分支、工作樹及指令檔來源；讀專案根目錄 AGENTS.md／CLAUDE.md（若有）。新分支前綴跟著工具走：Claude Code 用 `claude/<主題>`、Codex 用 `codex/<主題>`；不覆蓋其他工作者的變更。
+1. 確認目前分支、工作樹及指令檔來源；補讀尚未載入且適用的專案指令。新分支前綴跟著工具走：Claude Code 用 `claude/<主題>`、Codex 用 `codex/<主題>`；不覆蓋其他工作者的變更。
 2. 修改重要檔案前確保可回復。已追蹤且乾淨的檔案可用明確 Git 基準版本；未追蹤或已有未提交變更的檔案先備份，不能假定 Git 已保存。
-3. 不含秘密的備份可放 `governance/backups/<來源>.<yyyyMMdd-HHmmss>`，避免同名覆蓋；含憑證的設定只可備份到 repo 外、限制存取的本機位置，不輸出內容。
+3. 需要備份時一律放 repo 外的 `~/.ai-trash/<用途>-<yyyyMMdd-HHmmss>/`，不在 repo 內存快照（2026-09-14 起 `governance/backups/` 已移除，歷史查 Git）；含憑證的設定同樣只留本機、限制存取、不輸出內容。
 4. 修改規則時同步所有生效摘要與路由；一條政策只在一處完整定義，其他文件引用它。保留既有引用路徑，除非本次明確需要重組。
 5. 依 20 的高風險標準獨立審查制度變更，並跑下列檢查；回報行為差異、證據與未驗證的平台。
 
@@ -22,12 +24,12 @@
 在 ai-global 根目錄執行：
 
 ```bash
-python3 setup/check_governance.py
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 python3 setup/check_governance.py --local
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 ```
 
-- 離線檢查驗證兩個入口的節次對齊與各自的工具專屬前綴、制度路由及現行相對連結；`--local` 額外核對本機副本內容與支援的設定欄位。WARN 需說明，FAIL 需修正；未涵蓋項目不能宣稱通過。
+- `--local` 已包含離線檢查，同一版本不重跑兩者；只需 repo 檢查時省略 `--local`。離線檢查驗證兩個入口的節次對齊與各自的工具專屬前綴、制度路由及現行相對連結；`--local` 額外核對本機副本內容與支援的設定欄位。WARN 需說明，FAIL 需修正；未涵蓋項目不能宣稱通過。
+- 外部變化（模型、工具、marketplace 改版）的核對走 `/ai-global evolve`：只產 `docs/reports/harness-review-<日期>.md` 與更新核對日期；`manifest/sources.json` 的 `last_checked` 超過 `stale_days` 時 checker 提醒。報告經使用者裁決後才進入本檔的修改流程。
 - 工具檢查不證明模型會遵守文字。治理改版另依 [治理驗收情境](../docs/reference/governance-evaluation.md) 做獨立讀回；各平台新對話實測才是行為測試，不能用讀回替代。
 - router 以 60 行、單份制度以 300 行為維護預算，超過時檢查是否重複或可按需載入；這不是模型能力的硬上限。
 - 保留既有變更紀錄，本次規則變動加一筆日期與摘要。精確 diff 與回復依 Git；乾淨且已追蹤的檔案不用每次另製完整備份。
@@ -51,3 +53,5 @@ python3 setup/check_governance.py --local
 - 2026-08-17 兩側同步規則新增「跨機器同步」節：制度與全域設定改由 ai-global git repo 承載（Fable 5，應使用者要求）
 - 2026-09-07 統一授權來源、採 Git 基準回復、取消自動回寫與推送，加入結構檢查及行為驗收。
 - 2026-09-07 合併至 main 時重套部署模型：正本為 clone、部署端為實體副本（不再是 symlink／Junction），分支前綴跟著工具走（Fable 5.1）
+- 2026-09-14 合併離線與本機重複檢查，避免重讀已載入專案指令（Codex，使用者授權）。
+- 2026-09-14 移除 repo 內 `governance/backups/`（備份一律 repo 外、歷史查 Git）；新增 evolve 核對流程與 sources 過期提醒（Opus 5，使用者授權）。

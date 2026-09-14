@@ -19,4 +19,5 @@ jobs:
         with:
           python-version: '3.12'
       - run: python setup/check_governance.py
+      - run: python -m pip install -r setup/requirements-tui.txt
       - run: python -m unittest discover -s setup -p 'test_*.py'
