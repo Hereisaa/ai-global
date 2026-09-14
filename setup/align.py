@@ -155,11 +155,11 @@ def repo_relative(home, target):
     raise installers.InstallError(f"不是 ai-global 部署的路徑：{target}")
 
 
-def conflict(kind, key, title, detail, default=None):
+def conflict(kind, key, title, detail, default=None, **extra):
     actions = CONFLICT_ACTIONS[kind]
     return {"kind": kind, "key": key, "title": title, "detail": detail,
             "actions": [a for a, _ in actions], "labels": dict(actions),
-            "default": default or actions[0][0]}
+            "default": default or actions[0][0], **extra}
 
 
 def find_conflicts(repo, home, deploy_results, rows):
@@ -167,8 +167,9 @@ def find_conflicts(repo, home, deploy_results, rows):
     conflicts = []
     for status, path, _ in deploy_results:
         if status == "EDITED":
-            conflicts.append(conflict("edited", f"edited:{path}", f"部署檔在 repo 外被改過：{path}",
-                                      "repo 版本與本機版本不同，且本機不是上次部署的內容。"))
+            # key uses ~/ so it stays short and identical across machines; path is the real one
+            conflicts.append(conflict("edited", f"edited:{tilde(home, path)}", f"部署檔在 repo 外被改過：{tilde(home, path)}",
+                                      "repo 版本與本機版本不同，且本機不是上次部署的內容。", path=path))
     bundled = plugin_bundled_skills(home)
     versions = installed_versions(home)
     for row in rows:
@@ -182,7 +183,7 @@ def find_conflicts(repo, home, deploy_results, rows):
                                           f"plugin {bundled[row['id']]} 已內含同名 skill；兩份都會被列入觸發。"))
             else:
                 conflicts.append(conflict("extra", key, f"本機多出：{row['tool']} {row['kind']} {row['id']}",
-                                          "manifest 沒有這項；預設保留。要納管請加進 manifest/skills.json。", default=KEEP))
+                                          "manifest 未納管（要納管請加進 manifest/skills.json）", default=KEEP))
             continue
         if row["installed"] is False:
             continue  # handled by the automatic install step
@@ -209,7 +210,7 @@ def apply_action(c, action, repo, home, trash, echo):
     if kind == "edited":
         # "overwrite" and "keep" are carried out by the deploy pass in run().
         if action == "writeback":
-            target = Path(key.split(":", 1)[1])
+            target = Path(c["path"])
             rel = repo_relative(home, target)
             shutil.copy2(target, repo / rel)
             echo(f"WRITEBACK {rel} <- {target}")
@@ -302,6 +303,27 @@ def ensure_tui(repo, argv, *, ask=input, run=subprocess.run, echo=print, env=os.
     return run([str(python), str(Path(__file__).resolve()), *argv], env={**env, REEXEC_FLAG: "1"}).returncode
 
 
+# ---------------------------------------------------------------- output
+
+TAG_RE = re.compile(r"^[A-Z]+\s+")  # "PUT     x" -> "x" when a line becomes a table cell
+
+
+def tilde(home, text):
+    """Shorten a home-prefixed path (or a note starting with one) to ~/...; else unchanged."""
+    text, prefix = str(text), str(home).rstrip("/\\")
+    if text.startswith(prefix) and text[len(prefix):len(prefix) + 1] in ("/", "\\"):
+        return "~/" + text[len(prefix) + 1:].replace("\\", "/")
+    return text
+
+
+def section(echo, title, header, rows, empty):
+    """One phase of output: a heading, then a table or a one-line 'nothing to do'."""
+    echo("")
+    echo(f"== {title}（{len(rows)} 項）" if rows else f"== {title}：{empty}")
+    if rows:
+        echo(cap.table(header, rows, indent="   "))
+
+
 # ---------------------------------------------------------------- main
 
 def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=None, echo=print, tui=True):
@@ -314,9 +336,9 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     echo(f"home:   {home}")
     pulled = None if plan or no_pull else pull(repo, echo)
     check = deploy.run(repo, home, "check", echo=lambda *_: None)
-    for status, path, note in check["results"]:
-        if status != "OK" and (plan or status != "EDITED"):
-            echo(f"{'PLAN ' if plan else 'DRIFT'}   {status} {path}" + (f" - {note}" if note else ""))
+    section(echo, "PLAN 部署差異" if plan else "DRIFT 部署漂移", ["狀態", "檔案", "說明"],
+            [[status, tilde(home, path), note] for status, path, note in check["results"]
+             if status != "OK" and (plan or status != "EDITED")], "已同步")
     cli = cap.claude_cli_plugins(home)
     rows = cap.inventory(repo, home, cli)
     conflicts = find_conflicts(repo, home, check["results"], rows)
@@ -357,13 +379,22 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     edited = [c for c in conflicts if c["kind"] == "edited"]
     decide(edited)
     unresolved = apply([c for c in edited if chosen.get(c["key"]) == "writeback"])  # writeback before install
-    keep = {repo_relative(home, c["key"].split(":", 1)[1]) for c in edited
+    keep = {repo_relative(home, c["path"]) for c in edited
             if chosen.get(c["key"]) in (None, KEEP)}
     unresolved += [c for c in edited if chosen.get(c["key"]) is None]
     for c in edited:
         if chosen.get(c["key"]) in ("overwrite", KEEP):
             echo(f"{'OVERWRITE' if chosen[c['key']] == 'overwrite' else 'KEEP   '} {c['title']}")
-    result = check if plan else deploy.run(repo, home, "install", echo=echo, keep_edited=keep)
+    if plan:
+        result = check
+    else:
+        result = deploy.run(repo, home, "install", echo=lambda *_: None, keep_edited=keep)
+        section(echo, "DEPLOY 部署 repo 自己的檔", ["動作", "檔案", "說明"],
+                [[status, tilde(home, path), note] for status, path, note in result["results"] if status != "OK"],
+                "全部已是最新")
+        echo(f"   STATE {tilde(home, result['state_path'])} -> {result['commit'][:9]}")
+        if result["trash"]:
+            echo(f"   NOTE  被取代的檔在 {tilde(home, result['trash'])}（確認後自行清空）")
 
     # 2. Missing manifest items: automatic.
     wanted = cap.defaults(repo)
@@ -374,12 +405,20 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
         if unknown:
             failures.append(f"manifest 沒有這些 id：{', '.join(unknown)}")
         missing = [i for i in wanted.values() if i["id"] in only]
+    installed = []
+    labels = {"installed": "PUT", "same": "SAME", "skipped": "SKIP", "planned": "PLAN"}
     for item in missing:
+        lines = []
         try:
-            installers.install_item(item, home, trash=trash, echo=echo, dry_run=plan)
+            outcome = labels[installers.install_item(item, home, trash=trash, echo=lines.append, dry_run=plan)]
         except installers.InstallError as exc:
             failures.append(str(exc))
-            echo(f"FAIL    {exc}")
+            outcome, lines = "FAIL", [str(exc)]
+        name = f"{item['tool']} {item['type']} {item['id']}"
+        notes = [tilde(home, TAG_RE.sub("", line)) for line in lines]
+        installed.append([outcome, name, "；".join(n for n in notes if n != name)])
+    section(echo, "PLAN 要補裝的 manifest 缺項" if plan else "INSTALL 補裝 manifest 缺項",
+            ["動作", "項目", "說明"], installed, "沒有缺項")
 
     # 3. Capability conflicts: decided on the post-install inventory.
     if missing and not plan:
@@ -389,16 +428,16 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     decide(others)
     unresolved += apply(others)
 
+    section(echo, "CONFLICT 需要你決定", ["類型", "KEY（--resolve 用）", "說明", "預設"],
+            [[c["kind"], c["key"], tilde(home, c["detail"]), c["default"]] for c in unresolved], "沒有衝突")
     if unresolved:
-        echo("")
-        echo(f"CONFLICT {len(unresolved)} 項需要你決定（--resolve KEY=ACTION，或在真正的終端執行以開啟互動選單）：")
-        for c in unresolved:
-            options = " / ".join(f"{a}={c['labels'][a]}" for a in c["actions"])
-            echo(f"  [{c['kind']}] {c['title']}")
-            echo(f"      {c['detail']}")
-            echo(f"      KEY={c['key']}  選項：{options}（預設 {c['default']}）")
+        echo("   選項：")
+        for kind in dict.fromkeys(c["kind"] for c in unresolved):
+            echo(f"   {kind:<9} " + " / ".join(f"{a}={label}" for a, label in CONFLICT_ACTIONS[kind]))
+        echo("   指定方式：python setup/align.py --no-pull --resolve KEY=ACTION ...；在真正的終端執行則開互動選單。")
     if trash.exists():
-        echo(f"NOTE    被取代的項目在 {trash}")
+        echo("")
+        echo(f"   NOTE  被取代的項目在 {tilde(home, trash)}")
     return {"pull": pulled, "deploy": result, "missing": [i["id"] for i in missing],
             "conflicts": conflicts, "unresolved": unresolved, "failures": failures}
 

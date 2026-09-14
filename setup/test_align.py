@@ -66,7 +66,11 @@ class AlignTests(unittest.TestCase):
         self.assertEqual(self.cli_calls, [])
         self.assertIn("wanted@m", summary["missing"])
         self.assertEqual([c["kind"] for c in summary["conflicts"]], ["extra"])
-        self.assertTrue(any(line.startswith("PLAN ") and "MISSING" in line for line in self.echo_lines))
+        output = "\n".join(self.echo_lines)
+        self.assertIn("== PLAN 部署差異", output)
+        self.assertIn("MISSING", output)
+        self.assertIn("== PLAN 要補裝的 manifest 缺項", output)
+        self.assertIn("== CONFLICT 需要你決定（1 項）", output)
 
     def test_yes_deploys_installs_and_reports_conflicts_without_touching_them(self):
         stray = self.home / ".claude/skills/stray/SKILL.md"
@@ -90,14 +94,14 @@ class AlignTests(unittest.TestCase):
         router.write_text("# router local\n", encoding="utf-8")
         (self.repo / "governance/20-judgment.md").write_text("# rule v3\n", encoding="utf-8")
         summary = self.run_align(yes=True, resolve={
-            f"edited:{rule}": "keep", f"edited:{router}": "writeback"})
+            "edited:~/.ai-global/governance/20-judgment.md": "keep", "edited:~/.claude/CLAUDE.md": "writeback"})
         self.assertEqual(rule.read_text(encoding="utf-8"), "# local edit\n")
         self.assertEqual((self.repo / "claude/CLAUDE.md").read_text(encoding="utf-8"), "# router local\n")
         self.assertEqual(summary["unresolved"], [])
         kept = [r for r in summary["deploy"]["results"] if r[0] == "KEEP"]
         self.assertEqual(len(kept), 1)
         # Overwrite: repo wins and the local copy lands in the trash.
-        summary = self.run_align(yes=True, resolve={f"edited:{rule}": "overwrite"})
+        summary = self.run_align(yes=True, resolve={"edited:~/.ai-global/governance/20-judgment.md": "overwrite"})
         self.assertEqual(rule.read_text(encoding="utf-8"), "# rule v3\n")
         self.assertTrue(any(p.read_text(encoding="utf-8") == "# local edit\n" for p in (self.home / ".ai-trash").rglob("20-judgment.md")))
 

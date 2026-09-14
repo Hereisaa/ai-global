@@ -305,18 +305,23 @@ def display_width(text):
                for char in text)
 
 
-def capability_table(rows):
-    cells = [["工具", "種類", "ID", "來源", "專案預設", "安裝", "本機開關"]]
-    label = lambda value: "未知" if value is None else ("是" if value else "否")
-    for row in rows:
-        cells.append([row["tool"], row["kind"], row["id"],
-                      "專案預設" if row["origin"] == "project-default" else "本機既有",
-                      label(row["default_enabled"]), label(row["installed"]), label(row["enabled"])])
+def table(header, rows, indent=""):
+    """Column-aligned text table (CJK-aware); header, dashed rule, then rows."""
+    cells = [[str(c) for c in header]] + [[str(c) for c in row] for row in rows]
     widths = [max(display_width(cell) for cell in column) for column in zip(*cells)]
-    lines = ["  ".join(cell + " " * (width - display_width(cell))
-                       for cell, width in zip(row, widths)).rstrip() for row in cells]
-    lines.insert(1, "  ".join("-" * width for width in widths))
+    lines = [indent + "  ".join(cell + " " * (width - display_width(cell))
+                                for cell, width in zip(row, widths)).rstrip() for row in cells]
+    lines.insert(1, indent + "  ".join("-" * width for width in widths))
     return "\n".join(lines)
+
+
+def capability_table(rows):
+    label = lambda value: "未知" if value is None else ("是" if value else "否")
+    return table(["工具", "種類", "ID", "來源", "專案預設", "安裝", "本機開關"],
+                 [[row["tool"], row["kind"], row["id"],
+                   "專案預設" if row["origin"] == "project-default" else "本機既有",
+                   label(row["default_enabled"]), label(row["installed"]), label(row["enabled"])]
+                  for row in rows])
 
 
 def main(argv=None):
