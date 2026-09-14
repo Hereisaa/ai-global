@@ -2,7 +2,7 @@
 
 按需讀 [common.md](common.md) 的「原則」。align = pull → 部署 → 補裝 manifest 缺項 → 列出並解決衝突 → 對帳。自動項直接做；有兩種合理答案的才是「衝突」，只由使用者決定。所有取代與移除都進 `~/.ai-trash/`。
 
-同一支腳本兩個入口：使用者在真正的終端跑 `python <repo>/setup/align.py` 會開互動選單；在 Claude Code 裡沒有 TTY，由本流程改在對話中呈現衝突並收集決定。
+同一支腳本兩個入口：使用者在真正的終端跑 `python <repo>/setup/align.py` 會開互動選單（缺 prompt_toolkit 時先問一句、自動建專案 `.venv` 並重跑）；在 Claude Code 裡沒有 TTY，由本流程改在對話中呈現衝突並收集決定，不會觸發 `.venv` 建置。
 
 1. 先跑 `python <repo>/setup/align.py --plan`（唯讀）：看 pull 是否可行、部署差異、要補裝的項目、衝突清單。FAIL 或 `check_governance.py` 有 FAIL 就停下交付原因。
 2. 使用者已授權對齊即執行 `python <repo>/setup/align.py --yes`：pull（工作樹髒則略過並回報）、部署、補裝缺項。回傳碼 2 代表有衝突待決；1 代表有失敗項，先報。

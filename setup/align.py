@@ -20,6 +20,13 @@ import shutil
 import subprocess
 import sys
 
+MIN_PYTHON = (3, 11)  # tomllib (Codex config.toml) lives in the stdlib from 3.11
+if sys.version_info < MIN_PYTHON:
+    # Fail here with a hint instead of a ModuleNotFoundError from capabilities.py.
+    sys.exit(f"ai-global 需要 Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} 以上，目前是 "
+             f"{sys.version.split()[0]}（{sys.executable}）。\n"
+             "macOS：brew install python@3.12 後改用 python3.12 執行；Windows：py -3.12 或安裝新版 Python。")
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import capabilities as cap  # noqa: E402
 import deploy  # noqa: E402
@@ -242,6 +249,59 @@ def unwire_hook(home, key, trash, echo):
     echo(f"UNWIRE  {event}: {command}（備份 {backup}）")
 
 
+# ---------------------------------------------------------------- TUI bootstrap
+
+REEXEC_FLAG = "AI_GLOBAL_ALIGN_REEXEC"
+REQUIREMENTS = Path(__file__).resolve().with_name("requirements-tui.txt")
+
+
+def venv_python(repo):
+    """Interpreter inside the project's .venv (the path, whether it exists yet or not)."""
+    return repo / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+
+
+def has_tui(python=None, run=subprocess.run):
+    """True when *python* (default: this process) can import prompt_toolkit."""
+    if python is None:
+        try:
+            import prompt_toolkit  # noqa: F401
+        except ImportError:
+            return False
+        return True
+    return run([str(python), "-c", "import prompt_toolkit"], capture_output=True).returncode == 0
+
+
+def ensure_tui(repo, argv, *, ask=input, run=subprocess.run, echo=print, env=os.environ):
+    """Make the interactive menu available before any conflict is decided.
+
+    Returns None to carry on in this process, or the exit code of the whole
+    command re-run inside the project's .venv - created and filled with
+    requirements-tui.txt on demand, only after the user says yes. The re-run
+    carries REEXEC_FLAG so it can never bootstrap again.
+    """
+    if env.get(REEXEC_FLAG) or has_tui(run=run):
+        return None
+    python = venv_python(repo)
+    if not (python.exists() and has_tui(python, run=run)):
+        echo("互動選單需要 prompt_toolkit。可在專案底下建立 .venv 並安裝（只影響這個資料夾，刪掉 .venv 即還原）。")
+        try:
+            answer = ask("建立 .venv 並安裝 prompt_toolkit？[Y/n] ")
+        except EOFError:
+            answer = "n"
+        if answer.strip().lower() not in ("", "y", "yes"):
+            echo("略過；衝突將以 KEY=ACTION 列出，用 --resolve 指定。")
+            return None
+        for cmd in ([sys.executable, "-m", "venv", str(repo / ".venv")],
+                    [str(python), "-m", "pip", "install", "-q", "-r", str(REQUIREMENTS)]):
+            if run(cmd).returncode != 0:
+                echo(f"FAIL    {' '.join(cmd)}；改用文字模式。")
+                return None
+        echo(f"PUT     {python}（prompt_toolkit）")
+    echo(f"RUN     {python} setup/align.py（互動選單）")
+    sys.stdout.flush()  # keep our lines ahead of the child's when piped
+    return run([str(python), str(Path(__file__).resolve()), *argv], env={**env, REEXEC_FLAG: "1"}).returncode
+
+
 # ---------------------------------------------------------------- main
 
 def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=None, echo=print, tui=True):
@@ -353,7 +413,12 @@ def main(argv=None):
     parser.add_argument("--resolve", action="append", default=[], metavar="KEY=ACTION", help="指定衝突的處置，可重複")
     parser.add_argument("--only", action="append", default=[], metavar="ID", help="只（重新）安裝指定 manifest id，不處理能力衝突；可重複")
     parser.add_argument("--json", action="store_true", help="最後輸出 JSON 摘要")
+    parser.add_argument("--no-venv", action="store_true", help="缺 prompt_toolkit 時不建 .venv，直接用文字模式")
     args = parser.parse_args(argv)
+    if not (args.plan or args.yes or args.no_venv) and sys.stdin.isatty() and sys.stdout.isatty():
+        code = ensure_tui(args.repo.resolve(), sys.argv[1:] if argv is None else list(argv))
+        if code is not None:
+            return code
     resolve = {}
     for pair in args.resolve:
         key, sep, action = pair.rpartition("=")

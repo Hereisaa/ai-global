@@ -84,10 +84,10 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 | 腳本 | 用途 |
 |---|---|
 | `deploy.py` | 部署／檢查（`install`｜`check`）：把 repo 檔複製到 `~/.ai-global`、`~/.claude`、`~/.codex`，記 state，舊檔進 trash |
-| `align.py` | 一鍵對齊主流程；`--plan` 唯讀、`--yes` 只套自動項、`--resolve KEY=ACTION`、`--only ID`、`--no-pull` |
+| `align.py` | 一鍵對齊主流程；`--plan` 唯讀、`--yes` 只套自動項、`--resolve KEY=ACTION`、`--only ID`、`--no-pull`、`--no-venv`；Python 太舊會明講，缺 prompt_toolkit 會問要不要建 `.venv` 再自動重跑 |
 | `installers.py` | 依 manifest `source` 安裝單項：plugin 走 `claude`／`codex` CLI，`github:` 淺 clone 複製並寫 `.ai-global.json` |
 | `capabilities.py` | 能力清單（manifest vs 本機、兩個工具）與 `enable`／`disable`；Claude plugin 以 CLI 交叉驗證 |
-| `capabilities_tui.py` | prompt_toolkit 互動介面：能力開關選單、align 衝突選單（選配，`requirements-tui.txt`） |
+| `capabilities_tui.py` | prompt_toolkit 互動介面：能力開關選單、align 衝突選單（`requirements-tui.txt`；align 會自動建 `.venv` 裝好） |
 | `check_governance.py` | 治理靜態檢查＋`--local` 本機對帳；含 `manifest/sources.json` 過期提醒 |
 | `install-cleanup-agent.sh`／`install-cleanup-task.ps1` | 記憶體回收排程安裝器（launchd／schtasks，平台專屬故維持 sh/ps1） |
 | `test_*.py` | 測試：align、installers、deploy_controls、capabilities、capabilities_tui、check_governance、hooks |
@@ -114,16 +114,30 @@ Claude 獨有的三個（`typescript-lsp`、`hookify`、`claude-md-management`�
 
 ## 新機器上手
 
-clone 位置隨你，腳本會自己算出來並記進 state。
+只需要兩樣東西：**git** 和 **Python 3.11 以上**。clone 位置隨你，腳本會自己算出來並記進 state。
 
 ```bash
-# macOS / Linux（Windows 把路徑換成 D:\GitHub\ai-global 即可；不需要開發人員模式或系統管理員）
+# macOS：先確認版本；系統內建的 /usr/bin/python3 是 3.9，太舊
+python3 --version || true
+brew install python@3.12          # 沒有 3.11+ 才需要；之後用 python3.12 這個指令
+
 git clone git@github.com:Hereisaa/ai-global.git ~/Developer/GitHub/ai-global
-python ~/Developer/GitHub/ai-global/setup/align.py          # pull → 部署 → 補裝 manifest 缺項 → 衝突選單
-python ~/Developer/GitHub/ai-global/setup/deploy.py check   # 應該全部 OK
+python3.12 ~/Developer/GitHub/ai-global/setup/align.py      # pull → 部署 → 補裝 manifest 缺項 → 衝突選單
 ```
 
-只想部署 repo 自己的檔、不碰第三方：`python setup/deploy.py`。`align` 的互動選單需要 `setup/requirements-tui.txt`（prompt_toolkit）；沒裝時衝突會以 `KEY=ACTION` 列出，用 `--resolve` 指定。
+```powershell
+# Windows（不需要開發人員模式或系統管理員）；python 指 3.11+，沒有就先從 python.org 裝
+git clone git@github.com:Hereisaa/ai-global.git D:\GitHub\ai-global
+python D:\GitHub\ai-global\setup\align.py
+```
+
+第一次跑 `align` 會發生的事，都不用你先準備：
+
+1. Python 太舊 → 直接停下並告訴你版本與怎麼裝，不會噴一串 `ModuleNotFoundError`。
+2. 缺互動選單套件（prompt_toolkit）→ 問一句「建立 .venv 並安裝？[Y/n]」；按 Enter 就在專案底下建 `.venv`、裝好、用它重新執行自己。`.venv` 只影響這個資料夾、已在 `.gitignore`，刪掉就還原。之後不管你用 `python3.12 setup/align.py` 還是 `.venv/bin/python setup/align.py`，都會自動走 `.venv` 開選單。
+3. 有衝突 → 互動選單逐項選 keep／disable／trash；沒有衝突就直接結束。
+
+答 `n`（或加 `--no-venv`）就維持文字模式：衝突以 `KEY=ACTION` 列出，用 `--resolve` 指定。`--plan`／`--yes` 與非 TTY（Claude Code、CI）從不觸發這個提問。裝完跑 `python setup/deploy.py check` 應全部 OK；只想部署 repo 自己的檔、不碰第三方用 `python setup/deploy.py`。
 
 目標位置若已有你自己的 `CLAUDE.md`／`AGENTS.md`：先跑 `check` 會報 `EDITED`；install 會取代它並把原檔放進 `~/.ai-trash/`。
 
@@ -166,7 +180,7 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 |---|---|---|
 | `deploy.py`／`align.py`／`installers.py` | Python 3.11+ 標準庫 | 一份實作三 OS 通用；可被彼此 import，不靠解析 stdout |
 | 比對 | 位元組比對；hash 自算 git blob sha1 | 和 git blob 對得上，不依賴 git 執行檔 |
-| 互動選單 | prompt_toolkit（選配） | 能力開關與對齊衝突共用；沒裝就退回 `--resolve` |
+| 互動選單 | prompt_toolkit（專案 `.venv`） | 能力開關與對齊衝突共用；align 在終端缺它時問一句就自動建 `.venv`，拒絕或非 TTY 退回 `--resolve` |
 | checker | Python 3.9+ 標準庫；`tomllib`（3.11+）讀 Codex config | 三 OS CI 零依賴 |
 | 測試 | `unittest`，隔離 fixture | 驗證治理、部署與能力開關行為 |
 | skill | Claude Code skill，`$ARGUMENTS` 分派 | 按需載入命令，已有意圖不重問 |
@@ -187,7 +201,7 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 
 互動介面使用 [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io/en/stable/pages/full_screen_apps.html)，支援 Windows 與 macOS 終端。Python 3.11+；一般 list／enable／disable 不需要這個額外套件。
 
-第一次在專案目錄準備環境：
+`.venv` 通常已由第一次 `align` 建好（見「新機器上手」）。還沒有的話手動建一次：
 
 ```powershell
 python -m venv .venv

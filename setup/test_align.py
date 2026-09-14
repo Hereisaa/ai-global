@@ -147,5 +147,58 @@ class AlignTests(unittest.TestCase):
         self.assertTrue((self.home / ".claude/skills/stray").exists())
 
 
+class TuiBootstrapTests(unittest.TestCase):
+    """ensure_tui: builds .venv on a yes, re-runs inside it, never loops."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp(prefix="ai-global-venv-"))
+        self.python = align.venv_python(self.repo)
+        self.calls, self.lines = [], []
+        self.venv_has_tui = False
+
+    def fake_run(self, args, **kwargs):
+        self.calls.append(list(args))
+        if args[1:2] == ["-c"]:  # probe: does the venv python import prompt_toolkit?
+            return FakeResult(0 if self.venv_has_tui else 1)
+        if args[1:3] == ["-m", "venv"]:  # emulate venv creation
+            self.python.parent.mkdir(parents=True, exist_ok=True)
+            self.python.write_text("")
+        if args[1:4] == ["-m", "pip", "install"]:
+            self.venv_has_tui = True
+        return FakeResult(7 if str(args[1]).endswith("align.py") else 0)  # 7 = exit code of the re-run
+
+    def ensure(self, answer="y", env=None):
+        with patch.object(align, "has_tui", lambda python=None, run=None: self.venv_has_tui if python else False):
+            return align.ensure_tui(self.repo, ["--no-pull"], ask=lambda _: answer, run=self.fake_run,
+                                    echo=self.lines.append, env=env or {})
+
+    def test_yes_creates_venv_installs_and_reruns(self):
+        code = self.ensure("")
+        self.assertEqual(code, 7)
+        self.assertEqual(self.calls[0][1:3], ["-m", "venv"])
+        self.assertEqual(self.calls[1][:4], [str(self.python), "-m", "pip", "install"])
+        rerun = self.calls[-1]
+        self.assertEqual(rerun[0], str(self.python))
+        self.assertTrue(rerun[1].endswith("align.py"))
+        self.assertEqual(rerun[2:], ["--no-pull"])
+
+    def test_no_keeps_text_mode_and_touches_nothing(self):
+        self.assertIsNone(self.ensure("n"))
+        self.assertEqual(self.calls, [])
+        self.assertFalse((self.repo / ".venv").exists())
+        self.assertTrue(any("--resolve" in line for line in self.lines))
+
+    def test_existing_venv_is_reused_without_asking(self):
+        self.python.parent.mkdir(parents=True)
+        self.python.write_text("")
+        self.venv_has_tui = True
+        self.assertEqual(self.ensure("n"), 7)  # "n" never consulted: no prompt when the venv is ready
+        self.assertEqual(len(self.calls), 1)
+
+    def test_rerun_never_bootstraps_again(self):
+        self.assertIsNone(self.ensure("y", env={align.REEXEC_FLAG: "1"}))
+        self.assertEqual(self.calls, [])
+
+
 if __name__ == "__main__":
     unittest.main()

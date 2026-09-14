@@ -9,7 +9,7 @@
 
 ## 腳本（任一 OS 同一指令，Python 3.11+）
 - 部署／檢查：`python <repo>/setup/deploy.py [install|check]`
-- 一鍵對齊：`python <repo>/setup/align.py [--plan|--yes] [--no-pull] [--resolve KEY=ACTION]`
+- 一鍵對齊：`python <repo>/setup/align.py [--plan|--yes] [--no-pull] [--resolve KEY=ACTION] [--no-venv]`（Python <3.11 直接停下提示；終端缺 prompt_toolkit 會問要不要建 `.venv`，非 TTY 不問）
 - 能力清單與開關：`python <repo>/setup/capabilities.py list|enable|disable|manage`
 
 ## check 狀態碼

@@ -28,7 +28,7 @@
 clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 
 - 改全域設定：改 `<repo>` 內的檔 → 部署 → 驗證 → commit；push 須有對具體遠端／分支的明確授權（未 push 另一台拿不到）。
-- 一鍵對齊（pull＋部署＋補裝 manifest 缺項＋衝突選單）：`python <repo>/setup/align.py`；只部署 repo 自己的檔：`python <repo>/setup/deploy.py`；任一 OS 同一指令。
+- 一鍵對齊（pull＋部署＋補裝 manifest 缺項＋衝突選單）：`python <repo>/setup/align.py`（需 Python 3.11+；終端缺 prompt_toolkit 會問一句就自動建 `.venv` 重跑）；只部署 repo 自己的檔：`python <repo>/setup/deploy.py`；任一 OS 同一指令。
 - 只想看有沒有漂移（不動檔案）：`python <repo>/setup/deploy.py check` 或 `python <repo>/setup/align.py --plan`。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
 - `/ai-global` skill：`check`（唯讀對帳）／`sync`（pull＋部署＋對帳）／`deploy`／`govcheck`／`capabilities`／`install <name>`／`align`（一鍵對齊，衝突在對話中裁決）／`evolve`（核對官方文件與 marketplace 變化，只產報告）；可依明確自然語言分派，只有缺少意圖才列選單。
@@ -96,3 +96,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-07 合併 `claude/governance-refresh`（憲法優化）：授權／完成／驗收統一由 20 定義、push 需明確授權、委派不用檔數硬門檻、優先序加入平台層與同層衝突原則、補 50 與 80 路由、指向 `docs/reference/agent-runtime.md`；大綱維持本檔既有節次（Fable 5.1）
 - 2026-09-14 縮小讀取範圍、對齊 80 工程規則、移除低風險重問與改名要求，補能力開關入口及 Windows 手動清理決策（Codex，使用者授權）。
 - 2026-09-14 部署腳本改為單一 Python（`setup/deploy.py`），新增 `/ai-global align` 一鍵對齊（pull＋部署＋補裝＋衝突 TUI／對話裁決）與 `evolve`；install.sh／ps1 退役（Opus 5，使用者授權）
+- 2026-09-14 `align` 加 Python 版本守門與 `.venv` 自動建置（缺 prompt_toolkit 問一句即建、重跑）；manifest 的 Codex `claude-plugins-official` 條目改為自動註冊 marketplace（Opus 5，使用者授權）
