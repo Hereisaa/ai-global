@@ -229,8 +229,7 @@ def apply_action(c, action, repo, home, trash, echo):
         echo(f"TRASH   {row['path']} -> {dest}")
     elif action == "update":
         item = cap.defaults(repo)[(tool, ckind, identifier)]
-        installers.refresh_marketplace(item, echo=echo)  # otherwise install re-reads the stale snapshot
-        installers.install_item(item, home, trash=trash, echo=echo)
+        installers.update_plugin(item, echo=echo)
     elif action == "unwire":
         unwire_hook(home, key, trash, echo)
     else:

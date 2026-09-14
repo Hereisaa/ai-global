@@ -172,6 +172,20 @@ def refresh_marketplace(item, run=None, echo=print):
         echo(f"WARN    marketplace 更新失敗，仍嘗試安裝：{' '.join(cmd)}（{output.splitlines()[-1] if output else '無輸出'}）")
 
 
+def update_plugin(item, run=None, echo=print):
+    """Bring an installed plugin up to the marketplace's current version.
+    `claude plugin install` is a no-op for an installed plugin; `update` is the
+    upgrade path. Codex has no update verb: re-adding from a refreshed snapshot."""
+    refresh_marketplace(item, run=run, echo=echo)
+    cmd = ["claude", "plugin", "update", item["id"]] if item["tool"] == "claude" \
+        else ["codex", "plugin", "add", item["id"]]
+    ok, output = run_cli(cmd, run=run)
+    if not ok:
+        raise InstallError(f"更新失敗：{' '.join(cmd)}（{output.splitlines()[-1] if output else '無輸出'}）")
+    echo(f"UPDATE  {item['tool']} plugin {item['id']}（需重啟工具才生效）")
+    return "updated"
+
+
 def install_plugin(item, marketplace_repo, run=None, echo=print):
     add, install = plugin_commands(item, marketplace_repo)
     if add:

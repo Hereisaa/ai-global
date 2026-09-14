@@ -175,8 +175,9 @@ class AlignTests(unittest.TestCase):
         summary = self.run_align(yes=True, resolve={"claude:plugin:wanted@m": "update"})
         self.assertFalse([f for f in summary["failures"] if "wanted@m" in f])  # parked's fake clone failing is fixture noise
         self.assertIn(["claude", "plugin", "marketplace", "update", "m"], self.cli_calls)
+        self.assertIn(["claude", "plugin", "update", "wanted@m"], self.cli_calls)  # install is a no-op when installed
         self.assertLess(self.cli_calls.index(["claude", "plugin", "marketplace", "update", "m"]),
-                        self.cli_calls.index(["claude", "plugin", "install", "wanted@m"]))
+                        self.cli_calls.index(["claude", "plugin", "update", "wanted@m"]))
 
     def test_unknown_action_is_reported(self):
         (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
