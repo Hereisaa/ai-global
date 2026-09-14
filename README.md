@@ -132,6 +132,28 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 3. 跑 `python setup/capabilities.py list`，列專案預設與本機既有能力及啟用狀態。共用設定按需對帳，不自動覆寫本機選擇。
 4. 回報變更、證據、限制與分支。第三方安裝、敏感設定或未涵蓋的衝突才另行彙整裁決。
 
+### 互動式能力設定（TUI）
+
+互動介面使用 [prompt_toolkit](https://python-prompt-toolkit.readthedocs.io/en/stable/pages/full_screen_apps.html)，支援 Windows 與 macOS 終端。Python 3.11+；一般 list／enable／disable 不需要這個額外套件。
+
+第一次在專案目錄準備環境：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r setup/requirements-tui.txt
+.\.venv\Scripts\python.exe setup/capabilities.py manage --demo
+```
+
+macOS 使用 `.venv/bin/python` 取代 `.\.venv\Scripts\python.exe`。`--demo` 使用示範資料，不讀寫本機能力設定；去掉 `--demo` 就是實際管理。已啟用此虛擬環境時，也可直接執行 `python setup/capabilities.py manage`。支援 `--tool codex`、`--kind plugin` 等既有篩選。
+
+- ↑／↓ 選取，PageUp／PageDown 翻頁，空白鍵切換預定開關；再按一次空白鍵可還原。
+- `[x]` 預定啟用、`[ ]` 預定停用、`[-]` 無法切換、`*` 有待套用變更；未安裝或開關未知的項目會說明原因。
+- Enter 套用並離開；Esc／Ctrl+C 放棄全部預選且不寫入。表格欄位對齊，窄終端省略長 ID，選取項目的 ID 在下方獨立顯示，←／→ 可橫向捲動查看完整內容，不擠掉狀態與提示。
+- 套用前檢查能力狀態是否被其他工作階段改變；逐項套用並回報結果，發生失敗即停止，不把已完成部分當作全部成功，也不自動回復其他人的變更。
+- 不支援輸入／輸出重新導向；請在真正的互動 Terminal 執行。切換後需重新載入或重啟工具確認當次效果。
+
+驗證方式：先開 demo，選第二項、按空白鍵確認出現 `*` 與預定「開」；按 Esc 應顯示未寫入。再開 demo 重做並按 Enter，應回報示範預選數。實際模式可預選後按 Esc，接著用 list 確認原狀態未改。
+
 ### 能力選項
 
 清單涵蓋使用者全域層，不含專案或系統層。`manifest/skills.json` 以 `tool`、`id`、`default_enabled` 描述專案建議；預設值不強制覆寫本機。插件附帶的 skills 由所屬插件開關。Codex 插件目前只能確認本機開關設定，沒有可靠安裝登錄時安裝狀態顯示未知。

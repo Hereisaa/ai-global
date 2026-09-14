@@ -287,16 +287,32 @@ def capability_table(rows):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description="列出專案預設與本機既有能力，明確開關使用者層設定")
-    parser.add_argument("action", choices=("list", "enable", "disable"))
+    parser.add_argument("action", choices=("list", "manage", "enable", "disable"))
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--home", type=Path, default=Path.home(), help="僅隔離測試或指定使用者目錄")
     parser.add_argument("--tool", choices=("claude", "codex"))
     parser.add_argument("--kind", choices=("skill", "plugin", "command"))
     parser.add_argument("--id")
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--demo", action="store_true", help="manage 示範模式，不讀寫本機能力設定")
     args = parser.parse_args(argv)
+    if args.demo and args.action != "manage":
+        parser.error("--demo 僅用於 manage")
+    if args.json and args.action != "list":
+        parser.error("--json 僅用於 list")
     try:
-        if args.action != "list":
+        if args.action == "manage":
+            if not sys.stdin.isatty() or not sys.stdout.isatty():
+                raise ControlError("manage 需要互動式 Terminal；請在 PowerShell、Windows Terminal 或 macOS Terminal 直接執行。")
+            try:
+                from capabilities_tui import demo_rows, manage
+            except ImportError:
+                raise ControlError("互動模式需要 prompt_toolkit：請用目前 Python 執行 python -m pip install -r setup/requirements-tui.txt，或使用專案 .venv。") from None
+            rows = demo_rows() if args.demo else inventory(args.repo, args.home)
+            rows = [r for r in rows if (not args.tool or r["tool"] == args.tool) and (not args.kind or r["kind"] == args.kind) and (not args.id or r["id"] == args.id)]
+            return manage(rows, capability_table, lambda: inventory(args.repo, args.home),
+                          lambda tool, kind, identifier, enabled: toggle(args.repo, args.home, tool, kind, identifier, enabled), demo=args.demo)
+        elif args.action != "list":
             if not all((args.tool, args.kind, args.id)):
                 parser.error("開關必須指定 --tool、--kind、--id")
             print(toggle(args.repo, args.home, args.tool, args.kind, args.id, args.action == "enable"))
