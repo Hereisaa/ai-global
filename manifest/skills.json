@@ -94,6 +94,64 @@
       "id": "claude-md-management@claude-plugins-official",
       "default_enabled": true,
       "note": "audit CLAUDE.md quality and capture session learnings; supports 40-maintenance"
+    },
+    {
+      "name": "kb-retriever",
+      "type": "skill",
+      "source": "github:ConardLi/garden-skills",
+      "version": "1.0.1",
+      "tool": "codex",
+      "id": ".codex/skills/kb-retriever",
+      "default_enabled": true,
+      "note": "same content as the claude entry"
+    },
+    {
+      "name": "web-design-guidelines",
+      "type": "skill",
+      "source": "github:vercel-labs/agent-skills",
+      "path": "skills/web-design-guidelines",
+      "tool": "codex",
+      "id": ".codex/skills/web-design-guidelines",
+      "default_enabled": true,
+      "note": "same content as the claude entry"
+    },
+    {
+      "name": "frontend-design",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "codex",
+      "id": "frontend-design@claude-plugins-official",
+      "default_enabled": true,
+      "note": "codex plugin add frontend-design@claude-plugins-official; Codex reads Claude marketplace format"
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "type": "plugin",
+      "source": "marketplace github:nextlevelbuilder/ui-ux-pro-max-skill",
+      "version": "2.13.0",
+      "tool": "codex",
+      "id": "ui-ux-pro-max@ui-ux-pro-max-skill",
+      "default_enabled": true,
+      "note": "codex plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill first"
+    },
+    {
+      "name": "gsap-skills",
+      "type": "plugin",
+      "source": "marketplace github:greensock/gsap-skills",
+      "version": "1.0.0",
+      "tool": "codex",
+      "id": "gsap-skills@gsap-skills",
+      "default_enabled": true,
+      "note": "codex plugin marketplace add greensock/gsap-skills first"
+    },
+    {
+      "name": "context7",
+      "type": "plugin",
+      "source": "marketplace claude-plugins-official",
+      "tool": "codex",
+      "id": "context7@claude-plugins-official",
+      "default_enabled": true,
+      "note": "Codex loads the plugin's .mcp.json into mcp_servers (verified 2026-09-14 with codex mcp list)"
     }
   ]
 }
