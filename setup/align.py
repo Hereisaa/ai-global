@@ -155,8 +155,8 @@ def repo_relative(home, target):
     raise installers.InstallError(f"不是 ai-global 部署的路徑：{target}")
 
 
-def conflict(kind, key, title, detail, default=None, **extra):
-    actions = CONFLICT_ACTIONS[kind]
+def conflict(kind, key, title, detail, default=None, actions=None, **extra):
+    actions = [a for a in CONFLICT_ACTIONS[kind] if actions is None or a[0] in actions]
     return {"kind": kind, "key": key, "title": title, "detail": detail,
             "actions": [a for a, _ in actions], "labels": dict(actions),
             "default": default or actions[0][0], **extra}
@@ -176,14 +176,16 @@ def find_conflicts(repo, home, deploy_results, rows):
         key = f"{row['tool']}:{row['kind']}:{row['id']}"
         item = wanted.get((row["tool"], row["kind"], row["id"]))
         if item is None:
-            if row["tool"] == "codex" and row["id"].endswith(("@openai-bundled", "@openai-primary-runtime")):
-                continue  # tool-shipped plugins are not ours to manage
+            if row["kind"] == "plugin" and row["id"].endswith(("@inline", "@openai-bundled", "@openai-primary-runtime")):
+                continue  # plugins shipped inside the tool (Claude desktop, Codex) are not ours to manage
             if row["kind"] == "skill" and row["tool"] == "claude" and row["id"] in bundled:
                 conflicts.append(conflict("duplicate", key, f"重複 skill：{row['id']}",
                                           f"plugin {bundled[row['id']]} 已內含同名 skill；兩份都會被列入觸發。"))
             else:
+                # A plugin lives in the tool's own store: it can be switched off, not moved to trash.
                 conflicts.append(conflict("extra", key, f"本機多出：{row['tool']} {row['kind']} {row['id']}",
-                                          "manifest 未納管（要納管請加進 manifest/skills.json）", default=KEEP))
+                                          "manifest 未納管（要納管請加進 manifest/skills.json）", default=KEEP,
+                                          actions=(KEEP, "disable") if row["kind"] == "plugin" else None))
             continue
         if row["installed"] is False:
             continue  # handled by the automatic install step

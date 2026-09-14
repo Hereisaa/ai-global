@@ -143,6 +143,20 @@ class AlignTests(unittest.TestCase):
         self.assertNotIn("Stop", after.get("hooks", {}))
         self.assertTrue(any(p.name == "settings.json.before-unwire" for p in (self.home / ".ai-trash").rglob("*")))
 
+    def test_tool_shipped_plugins_are_not_conflicts_and_plugins_cannot_be_trashed(self):
+        self.run_align(yes=True)
+        registry = self.home / ".claude/plugins/installed_plugins.json"
+        data = cap.read_json(registry)
+        data["plugins"]["design@inline"] = [{"scope": "user", "version": "1.0.0"}]   # Claude desktop built-in
+        data["plugins"]["stray@m"] = [{"scope": "user", "version": "1.0.0"}]        # a real extra plugin
+        registry.write_text(json.dumps(data), encoding="utf-8")
+        summary = self.run_align(yes=True)
+        extras = {c["key"]: c for c in summary["conflicts"] if c["kind"] == "extra"}
+        self.assertNotIn("claude:plugin:design@inline", extras)
+        self.assertEqual(extras["claude:plugin:stray@m"]["actions"], ["keep", "disable"])
+        summary = self.run_align(yes=True, resolve={"claude:plugin:stray@m": "trash"})
+        self.assertTrue(any("不支援動作" in f for f in summary["failures"]))
+
     def test_unknown_action_is_reported(self):
         (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
         (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")
