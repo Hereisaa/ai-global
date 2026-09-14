@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import subprocess
 import sys
 import tomllib
 import unicodedata
@@ -67,7 +68,31 @@ def normalized_skill(path, home):
     return os.path.normcase(str(p.resolve()))
 
 
-def inventory(repo, home):
+def claude_cli_plugins(home):
+    """Cross-check the registry with `claude plugin list` (read-only).
+
+    installed_plugins.json is not documented; the CLI is the authority. Only
+    consulted for the real home, since the CLI cannot be pointed at a fixture.
+    Returns the set of listed plugin ids, or None when the CLI is unavailable.
+    """
+    if home != Path.home() or not shutil.which("claude"):
+        return None
+    try:
+        result = subprocess.run(["claude", "plugin", "list"], capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return parse_cli_plugins(result.stdout)
+
+
+def parse_cli_plugins(text):
+    # Each entry starts with a marker glyph followed by "<plugin>@<marketplace>".
+    return {m.group(1) for m in re.finditer(r"(?m)^\s*\S\s+([\w.-]+@[\w.-]+)\s*$", text)}
+
+
+def inventory(repo, home, cli_plugins=None):
     wanted = defaults(repo)
     records = {}
 
@@ -110,8 +135,17 @@ def inventory(repo, home):
             raise ControlError("Claude plugin enabled 值不是布林值")
         entries = plugins.get(identifier, [])
         user_entries = [e for e in entries if isinstance(e, dict) and e.get("scope", "user") == "user"] if isinstance(entries, list) else []
-        add("claude", "plugin", identifier, bool(user_entries), state,
-            note="使用者層設定；專案或管理政策可能覆蓋" if user_entries else "只有設定或其他 scope 安裝；請用原生插件管理確認")
+        installed = bool(user_entries)
+        note = "使用者層設定；專案或管理政策可能覆蓋" if installed else "只有設定或其他 scope 安裝；請用原生插件管理確認"
+        if cli_plugins is not None:
+            if identifier in cli_plugins:
+                installed, note = True, "CLI 已列出；專案或管理政策可能覆蓋"
+            elif installed:
+                note = "登錄有但 CLI 未列出（已停用的 plugin 不會列出；要卸載先 enable 再 uninstall）"
+        add("claude", "plugin", identifier, installed, state, note=note)
+    if cli_plugins is not None:
+        for identifier in sorted(cli_plugins - (plugins.keys() | switches.keys())):
+            add("claude", "plugin", identifier, True, None, note="CLI 列出但本機登錄與設定皆無；請用原生插件管理確認")
 
     _, config = read_toml(home / ".codex/config.toml")
     codex_plugins = config.get("plugins", {})
@@ -308,16 +342,17 @@ def main(argv=None):
                 from capabilities_tui import demo_rows, manage
             except ImportError:
                 raise ControlError("互動模式需要 prompt_toolkit：請用目前 Python 執行 python -m pip install -r setup/requirements-tui.txt，或使用專案 .venv。") from None
-            rows = demo_rows() if args.demo else inventory(args.repo, args.home)
+            cli = None if args.demo else claude_cli_plugins(args.home)
+            rows = demo_rows() if args.demo else inventory(args.repo, args.home, cli)
             rows = [r for r in rows if (not args.tool or r["tool"] == args.tool) and (not args.kind or r["kind"] == args.kind) and (not args.id or r["id"] == args.id)]
-            return manage(rows, capability_table, lambda: inventory(args.repo, args.home),
+            return manage(rows, capability_table, lambda: inventory(args.repo, args.home, claude_cli_plugins(args.home)),
                           lambda tool, kind, identifier, enabled: toggle(args.repo, args.home, tool, kind, identifier, enabled), demo=args.demo)
         elif args.action != "list":
             if not all((args.tool, args.kind, args.id)):
                 parser.error("開關必須指定 --tool、--kind、--id")
             print(toggle(args.repo, args.home, args.tool, args.kind, args.id, args.action == "enable"))
         else:
-            rows = inventory(args.repo, args.home)
+            rows = inventory(args.repo, args.home, claude_cli_plugins(args.home))
             rows = [r for r in rows if (not args.tool or r["tool"] == args.tool) and (not args.kind or r["kind"] == args.kind) and (not args.id or r["id"] == args.id)]
             if args.json:
                 print(json.dumps(rows, ensure_ascii=False, indent=2))

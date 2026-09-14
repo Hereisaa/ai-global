@@ -147,6 +147,30 @@ class CapabilityTests(unittest.TestCase):
         self.write(self.home / ".codex/skills/.system/SKILL.md", "# system")
         self.assertFalse(any(r["kind"] == "skill" and r["tool"] == "codex" for r in self.rows().values()))
 
+    def test_claude_plugin_registry_cross_checked_with_cli_listing(self):
+        self.write(self.home / ".claude/plugins/installed_plugins.json", json.dumps({"plugins": {
+            "listed@m": [{"scope": "user"}], "parked@m": [{"scope": "user"}]}}))
+        self.write(self.home / ".claude/settings.json", json.dumps({"enabledPlugins": {"listed@m": True, "parked@m": False}}))
+        listing = (
+            "Installed plugins:\n\n"
+            "  ❯ listed@m\n    Version: 1.0.0\n    Scope: user\n    Status: ✔ enabled\n"
+            "  ❯ orphan@m\n    Status: ✔ enabled\n"
+        )
+        cli = cap.parse_cli_plugins(listing)
+        self.assertEqual(cli, {"listed@m", "orphan@m"})
+        rows = {(r["tool"], r["kind"], r["id"]): r for r in cap.inventory(self.repo, self.home, cli)}
+        self.assertTrue(rows["claude", "plugin", "listed@m"]["installed"])
+        self.assertIn("CLI 已列出", rows["claude", "plugin", "listed@m"]["note"])
+        self.assertTrue(rows["claude", "plugin", "parked@m"]["installed"])
+        self.assertIn("CLI 未列出", rows["claude", "plugin", "parked@m"]["note"])
+        self.assertTrue(rows["claude", "plugin", "orphan@m"]["installed"])
+        self.assertIsNone(rows["claude", "plugin", "orphan@m"]["enabled"])
+        # Without a CLI listing the registry alone decides, as before.
+        self.assertNotIn(("claude", "plugin", "orphan@m"), self.rows())
+
+    def test_cli_cross_check_skipped_for_fixture_home(self):
+        self.assertIsNone(cap.claude_cli_plugins(self.home))
+
     def test_codex_plugin_installation_remains_unknown(self):
         self.write(self.home / ".codex/config.toml", '[plugins."p@m"]\nenabled = false\n')
         row = self.rows()["codex", "plugin", "p@m"]

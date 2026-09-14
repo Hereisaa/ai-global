@@ -30,6 +30,6 @@
 
 ## 建議動作
 
-1. （下次維護）`capabilities.py`：Claude 安裝狀態以 `claude plugin list` 交叉驗證；`capabilities.md` 補已停用 plugin 的卸載繞行。
-2. （下次維護）評估 checker 對 project 層 `enabledPlugins` 的提示。
+1. ~~（下次維護）`capabilities.py`：Claude 安裝狀態以 `claude plugin list` 交叉驗證；`capabilities.md` 補已停用 plugin 的卸載繞行。~~ **已處理（2026-09-14，同分支）**：`claude_cli_plugins()` 只在真實 home 且 CLI 可用時交叉驗證，隔離測試不受影響；note 明示「CLI 已列出／登錄有但 CLI 未列出／CLI 列出但登錄無」三種狀態。
+2. ~~（下次維護）評估 checker 對 project 層 `enabledPlugins` 的提示。~~ **不改 checker**：project 層設定在各專案 repo 內，全域 checker 無從枚舉；改在 `capabilities.md` 明示進入專案時另看。
 3. （下次 evolve）重讀 Claude memory 官方頁後再更新 `agent-runtime.md` 核對日期。

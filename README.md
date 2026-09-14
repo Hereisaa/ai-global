@@ -159,7 +159,7 @@ macOS 使用 `.venv/bin/python` 取代 `.\.venv\Scripts\python.exe`。`--demo` �
 
 ### 能力選項
 
-清單涵蓋使用者全域層，不含專案或系統層。`manifest/skills.json` 以 `tool`、`id`、`default_enabled` 描述專案建議；預設值不強制覆寫本機。插件附帶的 skills 由所屬插件開關。Codex 插件目前只能確認本機開關設定，沒有可靠安裝登錄時安裝狀態顯示未知。
+清單涵蓋使用者全域層，不含專案或系統層。`manifest/skills.json` 以 `tool`、`id`、`default_enabled` 描述專案建議；預設值不強制覆寫本機。插件附帶的 skills 由所屬插件開關。Claude 插件的安裝狀態以 `claude plugin list` 交叉驗證登錄檔；Codex 插件目前只能確認本機開關設定，沒有可靠安裝登錄時安裝狀態顯示未知。
 
 ```bash
 python setup/capabilities.py list
