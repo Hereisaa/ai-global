@@ -8,13 +8,13 @@
 | **憲法**（governance） | 10 委派、20 判斷、30 模板、40 維護、50 安全、60 起手式、70 行為契約、80 工程 | 模型按 router 的路由按需讀 |
 | **能力** | skill `ai-global`、3 支 hooks、statusline | Claude Code |
 | **清單**（manifest） | 第三方 skills／plugins／commands 名單、settings 共用基準 | 對帳用，不部署 |
-| **工具**（setup） | 部署腳本 ×2、治理 checker＋測試、記憶體回收排程安裝器 ×2 | 人與 agent |
+| **工具**（setup） | 部署、對齊、能力、安裝、治理 checker（全部 Python）＋測試、記憶體回收排程安裝器 ×2 | 人與 agent |
 | **參考**（docs/reference） | 各工具官方載入／權限機制、治理驗收情境 | 人與 agent |
 
 ## 核心設計：三個決策
 
 **1. 部署是複製，不是連結。**
-`setup/install.*` 把 repo 內容**複製**到工具讀的固定位置。clone 在哪都行、可以搬、甚至刪掉，機器上的全域設定不受影響。（舊的 symlink 模型在 Windows 上因為 clone 換槽整條斷過好幾週，而 Claude／Codex 沒有任何錯誤訊息。）
+`setup/deploy.py` 把 repo 內容**複製**到工具讀的固定位置。clone 在哪都行、可以搬、甚至刪掉，機器上的全域設定不受影響。（舊的 symlink 模型在 Windows 上因為 clone 換槽整條斷過好幾週，而 Claude／Codex 沒有任何錯誤訊息。）
 
 **2. 副本會漂移，所以用狀態檔抓。**
 `~/.ai-global/.deploy-state.json` 記 `source_repo`（clone 在哪）、`files`（每檔部署時的 blob hash）、`managed`（逐一部署了哪些 skill／command／agent）。`check` 據此分六種狀態：
@@ -50,12 +50,13 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 |---|---|
 | 看有沒有漂移 | `/ai-global check`（唯讀） |
 | 另一台改了 | `/ai-global sync`（pull → check → 裁決 → install → 對帳） |
-| 新機器／重裝 | `/ai-global deploy`；沒 Claude 時直接跑 `setup/install.*` |
+| 新機器／重裝 | `/ai-global align`（pull＋部署＋補裝＋衝突選單）；沒 Claude 時直接跑 `python setup/align.py` |
+| 只重新部署 repo 自己的檔 | `/ai-global deploy` 或 `python setup/deploy.py` |
 | 改完 router／制度檔 | `/ai-global govcheck` 或 `python setup/check_governance.py` |
 | 查看專案預設／本機既有及開關 | `/ai-global capabilities` 或 `python setup/capabilities.py list` |
 | 模型／工具改版後看 harness 哪裡過時 | `/ai-global evolve`：核對 `manifest/sources.json` 列的官方文件與 marketplace，寫 `docs/reports/harness-review-<日期>.md`；只產報告，不自動改 |
 | 補一個第三方能力 | `/ai-global install <name>` |
-| 手動 | macOS `bash setup/install.sh [check]`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1 [-Mode check]` |
+| 手動（任一 OS） | `python setup/deploy.py [install|check]`、`python setup/align.py [--plan|--yes]`、`python setup/capabilities.py list` |
 
 `/ai-global` 可依明確自然語言分派；沒有參數或可判斷意圖才列選單。`check` 唯讀；install 輸出的 `WARN`／`DROP`／`NOTE` 是「哪些東西被換掉、放在哪」的唯一紀錄。
 
@@ -66,17 +67,13 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 clone 位置隨你，腳本會自己算出來並記進 state。
 
 ```bash
-# macOS / Linux
+# macOS / Linux（Windows 把路徑換成 D:\GitHub\ai-global 即可；不需要開發人員模式或系統管理員）
 git clone git@github.com:Hereisaa/ai-global.git ~/Developer/GitHub/ai-global
-bash ~/Developer/GitHub/ai-global/setup/install.sh
-bash ~/Developer/GitHub/ai-global/setup/install.sh check   # 應該全部 OK
+python ~/Developer/GitHub/ai-global/setup/align.py          # pull → 部署 → 補裝 manifest 缺項 → 衝突選單
+python ~/Developer/GitHub/ai-global/setup/deploy.py check   # 應該全部 OK
 ```
-```powershell
-# Windows（不需要開發人員模式或系統管理員——沒有 symlink 就沒有權限問題）
-git clone git@github.com:Hereisaa/ai-global.git D:\GitHub\ai-global
-powershell -ExecutionPolicy Bypass -File D:\GitHub\ai-global\setup\install.ps1
-powershell -ExecutionPolicy Bypass -File D:\GitHub\ai-global\setup\install.ps1 -Mode check
-```
+
+只想部署 repo 自己的檔、不碰第三方：`python setup/deploy.py`。`align` 的互動選單需要 `setup/requirements-tui.txt`（prompt_toolkit）；沒裝時衝突會以 `KEY=ACTION` 列出，用 `--resolve` 指定。
 
 目標位置若已有你自己的 `CLAUDE.md`／`AGENTS.md`：先跑 `check` 會報 `EDITED`；install 會取代它並把原檔放進 `~/.ai-trash/`。
 
@@ -101,9 +98,11 @@ manifest/skills.json         第三方能力清單（名稱＋來源＋版本）
 manifest/settings.json       settings 共用基準（Claude 四個區塊；Codex 只有 personality）
 manifest/sources.json        evolve 的核對來源（官方文件、changelog、marketplace；記上次核對日期）
 docs/reports/                evolve 產出的 harness 審查報告（依日期）
-setup/install.sh|.ps1        部署與檢查，兩支語意完全相同
+setup/deploy.py              部署與檢查（install|check），跨平台單一實作
+setup/align.py               一鍵對齊：pull → deploy → 補裝缺項 → 衝突（TUI 或 --resolve）
+setup/installers.py          依 manifest 來源型別安裝單項（tool CLI 或 git checkout）
 setup/check_governance.py    治理靜態檢查與本機對帳
-setup/capabilities.py        能力來源、狀態清單及本機開關
+setup/capabilities.py        能力來源、狀態清單及本機開關（capabilities_tui.py 為互動介面）
 setup/install-cleanup-*.{sh,ps1}  記憶體回收排程安裝器
 docs/reference/              agent-runtime.md（工具機制）、governance-evaluation.md（驗收情境）
 .github/workflows/governance.yml  三 OS 跑 checker 與測試
@@ -115,10 +114,9 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 
 | 元件 | 技術 | 為何 |
 |---|---|---|
-| `install.sh` | bash，macOS 3.2 相容 | macOS／Linux／Git Bash 通用 |
-| `install.ps1` | PowerShell 5.1，純 .NET 不用 cmdlet | 從 Git Bash 啟動的 PS 叫不到 `Get-FileHash`／`ConvertFrom-Json` |
-| 比對 | 位元組比對；hash 用 `git hash-object` | 兩平台語意一致，和 git blob 對得上 |
-| 狀態檔 | 手寫 JSON，一行一 key | bash 端用 sed 就讀得動 |
+| `deploy.py`／`align.py`／`installers.py` | Python 3.11+ 標準庫 | 一份實作三 OS 通用；可被彼此 import，不靠解析 stdout |
+| 比對 | 位元組比對；hash 自算 git blob sha1 | 和 git blob 對得上，不依賴 git 執行檔 |
+| 互動選單 | prompt_toolkit（選配） | 能力開關與對齊衝突共用；沒裝就退回 `--resolve` |
 | checker | Python 3.9+ 標準庫；`tomllib`（3.11+）讀 Codex config | 三 OS CI 零依賴 |
 | 測試 | `unittest`，隔離 fixture | 驗證治理、部署與能力開關行為 |
 | skill | Claude Code skill，`$ARGUMENTS` 分派 | 按需載入命令，已有意圖不重問 |
@@ -130,7 +128,7 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 **Claude Code 已部署過的機器**：用 `/ai-global`。
 
 **全新機器（skill 還不存在）或 Codex**：
-1. 確認 OS 與 clone，先跑治理 checker 及 `setup/install.* check`；看清既有 router 差異。需要取代且既有授權未涵蓋時，告知影響與備份位置後取得同意。
+1. 確認 OS 與 clone，先跑治理 checker 及 `python setup/deploy.py check`（或 `python setup/align.py --plan`）；看清既有 router 差異。需要取代且既有授權未涵蓋時，告知影響與備份位置後取得同意。
 2. 在授權內執行部署並 check 驗證；被取代內容保留至 `~/.ai-trash/`，不自動安裝第三方。
 3. 跑 `python setup/capabilities.py list`，列專案預設與本機既有能力及啟用狀態。共用設定按需對帳，不自動覆寫本機選擇。
 4. 回報變更、證據、限制與分支。第三方安裝、敏感設定或未涵蓋的衝突才另行彙整裁決。
@@ -191,7 +189,7 @@ python setup/check_governance.py --local    # 已包含離線檢查；只驗 rep
 python -m unittest discover -s setup -p 'test_*.py'
 ```
 
-離線 checker 需 Python 3.9+；能力 CLI、完整測試套件及 `--local` 的 Codex TOML 對帳需 Python 3.11+。CI（`.github/workflows/governance.yml`）在 push／PR 於三個 OS 跑離線 checker 與測試——工作流程存在不等於分支保護已設。這些檢查驗結構與連結，**不證明模型遵循**；真正的強制在 sandbox／permissions／hooks／CI。完整部署對帳仍以 `setup/install.* check` 與 `/ai-global` 為準。[驗收情境](docs/reference/governance-evaluation.md)、[執行環境參考](docs/reference/agent-runtime.md)。
+離線 checker 需 Python 3.9+；能力 CLI、完整測試套件及 `--local` 的 Codex TOML 對帳需 Python 3.11+。CI（`.github/workflows/governance.yml`）在 push／PR 於三個 OS 跑離線 checker 與測試——工作流程存在不等於分支保護已設。這些檢查驗結構與連結，**不證明模型遵循**；真正的強制在 sandbox／permissions／hooks／CI。完整部署對帳仍以 `python setup/deploy.py check` 與 `/ai-global` 為準。[驗收情境](docs/reference/governance-evaluation.md)、[執行環境參考](docs/reference/agent-runtime.md)。
 
 ## 已知邊界
 

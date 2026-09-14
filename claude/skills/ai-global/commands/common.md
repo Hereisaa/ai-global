@@ -7,9 +7,10 @@
 
 **原則**：授權依 `governance/20-judgment.md`，安全依 `governance/50-safety.md`。已授權部署內的備份與可逆取代不重問；未涵蓋的既有內容衝突、第三方安裝、權限或模型改變才彙整一次裁決。check 與 list 只回報，不寫設定或 auto-memory。
 
-## 部署腳本
-- macOS/Linux：`bash <repo>/setup/install.sh [check]`
-- Windows：`powershell -ExecutionPolicy Bypass -File <repo>\setup\install.ps1 [-Mode check]`
+## 腳本（任一 OS 同一指令，Python 3.11+）
+- 部署／檢查：`python <repo>/setup/deploy.py [install|check]`
+- 一鍵對齊：`python <repo>/setup/align.py [--plan|--yes] [--no-pull] [--resolve KEY=ACTION]`
+- 能力清單與開關：`python <repo>/setup/capabilities.py list|enable|disable|manage`
 
 ## check 狀態碼
 | 狀態 | 意思 | 已授權部署時的處置 |
@@ -35,4 +36,4 @@
 結論先行，列具體變更、驗證、限制與分支。未安裝或本機停用不代表部署失敗。push 須對具體遠端／分支的明確授權。
 
 ## Codex 側
-本 skill 的 slash command 屬 Claude Code；Codex 可直接使用 `<repo>/setup/` 中同一套 CLI。
+本 skill 的 slash command 屬 Claude Code；Codex 可直接使用 `<repo>/setup/` 中同一套 CLI（Python），流程與本目錄各 `.md` 相同。

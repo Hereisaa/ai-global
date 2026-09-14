@@ -1,5 +1,5 @@
 {
-  "_readme": "專案預設能力與建議開關；不覆蓋本機選擇、不自動安裝。tool/type/id 為唯一識別，default_enabled 是建議值。第三方 version 未列者不保證版本可重現。收錄準則：只收模型本身沒有的東西（專案路由、即時文件、真實工具、隨附資料、harness 強制），不收教方法論的流程模板；觸發詞重疊的能力只留一個。",
+  "_readme": "專案預設能力與建議開關；不覆蓋本機選擇、不自動安裝。tool/type/id 為唯一識別，default_enabled 是建議值。第三方 version 未列者不保證版本可重現。收錄準則：只收模型本身沒有的東西（專案路由、即時文件、真實工具、隨附資料、harness 強制），不收教方法論的流程模板；觸發詞重疊的能力只留一個。 欄位：source（repo:／marketplace <name>／marketplace github:owner/repo／github:owner/repo）、path、ref、version、requires（PATH 上必須有的指令）、requires_hint。",
   "items": [
     {
       "name": "ai-global",
@@ -17,7 +17,8 @@
       "tool": "claude",
       "id": "kb-retriever",
       "default_enabled": true,
-      "note": "local knowledge-base retrieval with PDF/Excel handling; used by knowledge-vault"
+      "note": "local knowledge-base retrieval with PDF/Excel handling; used by knowledge-vault",
+      "path": "skills/kb-retriever"
     },
     {
       "name": "web-design-guidelines",
@@ -66,7 +67,11 @@
       "tool": "claude",
       "id": "typescript-lsp@claude-plugins-official",
       "default_enabled": true,
-      "note": "real type/reference queries for TS projects"
+      "note": "real type/reference queries for TS projects",
+      "requires": [
+        "typescript-language-server"
+      ],
+      "requires_hint": "npm install -g typescript-language-server typescript"
     },
     {
       "name": "context7",
@@ -103,7 +108,8 @@
       "tool": "codex",
       "id": ".codex/skills/kb-retriever",
       "default_enabled": true,
-      "note": "same content as the claude entry"
+      "note": "same content as the claude entry",
+      "path": "skills/kb-retriever"
     },
     {
       "name": "web-design-guidelines",

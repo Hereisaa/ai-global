@@ -163,3 +163,31 @@ class TuiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+@unittest.skipIf(tui is None, "Install setup/requirements-tui.txt for interactive tests")
+class ConflictTuiTests(unittest.TestCase):
+    def conflicts(self):
+        import align
+        return [align.conflict("extra", "claude:skill:stray", "本機多出：stray", "manifest 沒有", default="keep"),
+                align.conflict("edited", "edited:/x/CLAUDE.md", "部署檔被改過", "差異")]
+
+    def key_run(self, keys):
+        with create_pipe_input() as pipe:
+            pipe.send_text(keys)
+            return tui.resolve_conflicts(self.conflicts(), input=pipe, output=DummyOutput())
+
+    def test_enter_returns_defaults_when_nothing_changed(self):
+        self.assertEqual(self.key_run("\r"), {"claude:skill:stray": "keep", "edited:/x/CLAUDE.md": "overwrite"})
+
+    def test_right_cycles_action_and_down_moves_selection(self):
+        # extra: keep -> disable ; then down, right twice: overwrite -> writeback -> keep
+        self.assertEqual(self.key_run("\x1b[C\x1b[B\x1b[C\x1b[C\r"),
+                         {"claude:skill:stray": "disable", "edited:/x/CLAUDE.md": "keep"})
+
+    def test_left_wraps_and_escape_cancels(self):
+        self.assertEqual(self.key_run("\x1b[D\r")["claude:skill:stray"], "trash")
+        self.assertIsNone(self.key_run("\x1b[C\x1b"))
+
+    def test_empty_conflict_list_needs_no_ui(self):
+        self.assertEqual(tui.resolve_conflicts([]), {})

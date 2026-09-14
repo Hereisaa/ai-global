@@ -36,10 +36,10 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 
 ## 發布與跨機器同步
 
-- 正本是 ai-global 的 clone（本機路徑見 `~/.ai-global/.deploy-state.json` 的 `source_repo`）。部署端（`~/.ai-global/governance/`、兩個 router、hooks、自製 skill）是 `setup/install.*` 複製出來的實體副本，不是連結：改 clone 不會立即影響這台機器，要重新部署才生效；反之，切分支也不會讓部署端跟著變。
+- 正本是 ai-global 的 clone（本機路徑見 `~/.ai-global/.deploy-state.json` 的 `source_repo`）。部署端（`~/.ai-global/governance/`、兩個 router、hooks、自製 skill）是 `setup/deploy.py` 複製出來的實體副本，不是連結：改 clone 不會立即影響這台機器，要重新部署才生效；反之，切分支也不會讓部署端跟著變。
 - 本地修改、commit、push 與另一台套用是不同步驟。只有使用者已明確授權發布到特定遠端／分支才 push；「改良」不自動包含對外發布。
 - 提交只包含本次檔案，先檢查差異與秘密。不要用無範圍的 `git add .` 收進其他人的變更。
-- 對帳先唯讀檢查（`setup/install.* check`）；要求同步時，確認工作樹可安全更新後使用 `git pull --ff-only`，再依 check 的狀態碼決定是否重新部署。兩平台都是複製模式，一律比對內容，不能只檢查檔案存在。
+- 對帳先唯讀檢查（`python setup/deploy.py check`）；要求同步時，確認工作樹可安全更新後使用 `git pull --ff-only`，再依 check 的狀態碼決定是否重新部署。兩平台都是複製模式，一律比對內容，不能只檢查檔案存在。
 - 不擅自調整模型／effort、權限或安裝第三方能力來消除警告；先判斷差異是本機選擇還是需修復的設定。
 
 ## 教訓與記憶
@@ -55,3 +55,4 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 - 2026-09-07 合併至 main 時重套部署模型：正本為 clone、部署端為實體副本（不再是 symlink／Junction），分支前綴跟著工具走（Fable 5.1）
 - 2026-09-14 合併離線與本機重複檢查，避免重讀已載入專案指令（Codex，使用者授權）。
 - 2026-09-14 移除 repo 內 `governance/backups/`（備份一律 repo 外、歷史查 Git）；新增 evolve 核對流程與 sources 過期提醒（Opus 5，使用者授權）。
+- 2026-09-14 部署與對齊改為 Python 腳本（deploy.py／align.py／installers.py），install.sh／ps1 退役；EDITED 由使用者在 align 中裁決（Opus 5，使用者授權）。
