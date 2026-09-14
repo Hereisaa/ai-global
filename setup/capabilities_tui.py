@@ -229,3 +229,81 @@ def manage(rows, table_renderer, read_current, toggle, *, demo=False):
     if pending and status == 0:
         print("設定已更新；重新載入或重啟 Codex／Claude 後確認效果。")
     return status
+
+
+# ---------------------------------------------------------------- conflicts
+
+def resolve_conflicts(conflicts, *, input=None, output=None):
+    """Pick one action per conflict; returns {key: action} or None on cancel."""
+    if not conflicts:
+        return {}
+    choice = {c["key"]: c["default"] for c in conflicts}
+    state = {"index": 0}
+    keys = KeyBindings()
+
+    def cycle(step):
+        c = conflicts[state["index"]]
+        options = c["actions"]
+        choice[c["key"]] = options[(options.index(choice[c["key"]]) + step) % len(options)]
+
+    @keys.add("up")
+    def up(event):
+        state["index"] = max(0, state["index"] - 1)
+
+    @keys.add("down")
+    def down(event):
+        state["index"] = min(len(conflicts) - 1, state["index"] + 1)
+
+    @keys.add("left")
+    def left(event):
+        cycle(-1)
+
+    @keys.add("right")
+    @keys.add(" ")
+    def right(event):
+        cycle(1)
+
+    @keys.add("enter")
+    def apply(event):
+        event.app.exit(result=dict(choice))
+
+    @keys.add("escape")
+    @keys.add("c-c")
+    def cancel(event):
+        event.app.exit(result=None)
+
+    def rows():
+        result = []
+        width = max(20, get_app().output.get_size().columns - 4)
+        for i, c in enumerate(conflicts):
+            selected = i == state["index"]
+            label = c["labels"][choice[c["key"]]]
+            changed = "*" if choice[c["key"]] != c["default"] else " "
+            line = f"{'>' if selected else ' '}{changed} [{c['kind']:<9}] {c['title']}"
+            line = line if get_cwidth(line) <= width - 16 else line[: width - 18] + "…"
+            result.append(("class:selected" if selected else "", f"{line}  → {label}\n"))
+        return result
+
+    control = FormattedTextControl(rows, focusable=True,
+                                   get_cursor_position=lambda: Point(x=0, y=state["index"]))
+
+    def details():
+        c = conflicts[state["index"]]
+        options = "   ".join(f"[{'x' if a == choice[c['key']] else ' '}] {c['labels'][a]}" for a in c["actions"])
+        return f"{c['detail']}\nKEY={c['key']}\n{options}"
+
+    layout = HSplit([
+        Window(FormattedTextControl("AI GLOBAL  對齊衝突  [每項選一個處置；預設為最保守的選項]"), height=1, style="class:title"),
+        Window(FormattedTextControl("↑↓ 選取  ←→/空白鍵 切換處置  Enter 套用全部  Esc/Ctrl+C 取消（不動任何檔案）"), height=2, wrap_lines=True),
+        Window(control, wrap_lines=False, right_margins=[ScrollbarMargin(display_arrows=True)]),
+        Window(height=1, char="─"),
+        Window(FormattedTextControl(details), height=4, wrap_lines=True),
+        Window(FormattedTextControl(lambda: f"{sum(1 for c in conflicts if choice[c['key']] != c['default'])} 項改了預設；* 表示已改。刪除一律移到 ~/.ai-trash。"), height=2, wrap_lines=True),
+    ])
+    app = Application(layout=Layout(layout, focused_element=control), key_bindings=keys,
+                      full_screen=True, mouse_support=False, input=input, output=output,
+                      style=Style.from_dict({"title": "bold fg:ansicyan", "selected": "reverse"}))
+    try:
+        return app.run()
+    except (EOFError, KeyboardInterrupt):
+        return None

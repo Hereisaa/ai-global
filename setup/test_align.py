@@ -1,0 +1,151 @@
+"""align: end-to-end against an isolated repo + home with a fake tool CLI."""
+
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+import align
+import capabilities as cap
+import installers
+
+
+class FakeResult:
+    def __init__(self, code=0, out=""):
+        self.returncode, self.stdout, self.stderr = code, out, ""
+
+
+class AlignTests(unittest.TestCase):
+    def setUp(self):
+        base = Path(tempfile.mkdtemp(prefix="ai-global-align-"))
+        self.repo, self.home = base / "repo", base / "home"
+        for folder in ("governance", "claude/skills/ai-global", "codex", "manifest"):
+            (self.repo / folder).mkdir(parents=True)
+        (self.repo / "governance/20-judgment.md").write_text("# rule v2\n", encoding="utf-8")
+        (self.repo / "claude/CLAUDE.md").write_text("# router\n", encoding="utf-8")
+        (self.repo / "codex/AGENTS.md").write_text("# router\n", encoding="utf-8")
+        (self.repo / "claude/skills/ai-global/SKILL.md").write_text("# ai-global\n", encoding="utf-8")
+        self.manifest = {"items": [
+            {"tool": "claude", "type": "skill", "id": "ai-global", "default_enabled": True, "source": "repo:claude/skills/ai-global"},
+            {"tool": "claude", "type": "plugin", "id": "wanted@m", "default_enabled": True, "source": "marketplace github:o/m"},
+            {"tool": "claude", "type": "skill", "id": "parked", "default_enabled": True, "source": "github:o/s", "path": "skills/parked"},
+        ]}
+        (self.repo / "manifest/skills.json").write_text(json.dumps(self.manifest), encoding="utf-8")
+        subprocess.run(["git", "init", "-q", str(self.repo)], check=True, capture_output=True)
+        self.cli_calls = []
+        self.echo_lines = []
+
+    def echo(self, line=""):
+        self.echo_lines.append(str(line))
+
+    def fake_run(self, args, **kwargs):
+        self.cli_calls.append(list(args))
+        if args[0] == "claude" and args[1:3] == ["plugin", "install"]:
+            # Emulate the CLI registering the plugin.
+            registry = self.home / ".claude/plugins/installed_plugins.json"
+            data = cap.read_json(registry) if registry.exists() else {"plugins": {}}
+            data.setdefault("plugins", {})[args[3]] = [{"scope": "user", "version": "1.0.0"}]
+            registry.parent.mkdir(parents=True, exist_ok=True)
+            registry.write_text(json.dumps(data), encoding="utf-8")
+        return FakeResult()
+
+    def run_align(self, **kwargs):
+        with patch.object(installers, "subprocess") as sp, patch.object(cap, "claude_cli_plugins", lambda home: None):
+            sp.run = self.fake_run
+            sp.SubprocessError = subprocess.SubprocessError
+            return align.run(self.repo, self.home, no_pull=True, tui=False, echo=self.echo, **kwargs)
+
+    def test_plan_is_read_only_and_lists_everything(self):
+        (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
+        (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")
+        before = sorted(p for p in self.home.rglob("*"))
+        summary = self.run_align(plan=True)
+        self.assertEqual(before, sorted(p for p in self.home.rglob("*")))
+        self.assertEqual(self.cli_calls, [])
+        self.assertIn("wanted@m", summary["missing"])
+        self.assertEqual([c["kind"] for c in summary["conflicts"]], ["extra"])
+        self.assertTrue(any(line.startswith("PLAN ") and "MISSING" in line for line in self.echo_lines))
+
+    def test_yes_deploys_installs_and_reports_conflicts_without_touching_them(self):
+        stray = self.home / ".claude/skills/stray/SKILL.md"
+        stray.parent.mkdir(parents=True)
+        stray.write_text("# stray")
+        with patch.object(installers, "repo_url", lambda spec: "file:///nonexistent"):
+            summary = self.run_align(yes=True)
+        self.assertTrue((self.home / ".ai-global/governance/20-judgment.md").is_file())
+        self.assertIn(["claude", "plugin", "marketplace", "add", "o/m"], self.cli_calls)
+        self.assertIn(["claude", "plugin", "install", "wanted@m"], self.cli_calls)
+        self.assertTrue(stray.exists())  # extra: default keep, never applied without a choice
+        self.assertEqual([c["kind"] for c in summary["unresolved"]], ["extra"])
+        # The git-backed skill could not be fetched (fake CLI clones nothing): a failure, not a crash.
+        self.assertTrue(any("SKILL.md" in f for f in summary["failures"]))
+
+    def test_edited_keep_and_writeback_are_honoured_before_deploy(self):
+        self.run_align(yes=True)  # first deploy
+        rule = self.home / ".ai-global/governance/20-judgment.md"
+        router = self.home / ".claude/CLAUDE.md"
+        rule.write_text("# local edit\n", encoding="utf-8")
+        router.write_text("# router local\n", encoding="utf-8")
+        (self.repo / "governance/20-judgment.md").write_text("# rule v3\n", encoding="utf-8")
+        summary = self.run_align(yes=True, resolve={
+            f"edited:{rule}": "keep", f"edited:{router}": "writeback"})
+        self.assertEqual(rule.read_text(encoding="utf-8"), "# local edit\n")
+        self.assertEqual((self.repo / "claude/CLAUDE.md").read_text(encoding="utf-8"), "# router local\n")
+        self.assertEqual(summary["unresolved"], [])
+        kept = [r for r in summary["deploy"]["results"] if r[0] == "KEEP"]
+        self.assertEqual(len(kept), 1)
+        # Overwrite: repo wins and the local copy lands in the trash.
+        summary = self.run_align(yes=True, resolve={f"edited:{rule}": "overwrite"})
+        self.assertEqual(rule.read_text(encoding="utf-8"), "# rule v3\n")
+        self.assertTrue(any(p.read_text(encoding="utf-8") == "# local edit\n" for p in (self.home / ".ai-trash").rglob("20-judgment.md")))
+
+    def test_extra_duplicate_switch_and_hook_actions(self):
+        self.run_align(yes=True)
+        # extra -> trash; duplicate (skill bundled in enabled plugin) -> trash; switch -> enable; hook -> unwire
+        (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
+        (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")
+        bundled = self.home / ".claude/plugins/cache/m/wanted/1.0.0/skills/dupe"
+        bundled.mkdir(parents=True)
+        (bundled / "SKILL.md").write_text("# bundled")
+        registry = self.home / ".claude/plugins/installed_plugins.json"
+        data = cap.read_json(registry)
+        data["plugins"]["wanted@m"][0]["installPath"] = str(bundled.parents[1])
+        registry.write_text(json.dumps(data), encoding="utf-8")
+        (self.home / ".claude/skills/dupe/SKILL.md").parent.mkdir(parents=True)
+        (self.home / ".claude/skills/dupe/SKILL.md").write_text("# standalone")
+        settings = {"enabledPlugins": {"wanted@m": True},
+                    "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/gone.sh"}]}]}}
+        (self.home / ".claude/settings.json").write_text(json.dumps(settings), encoding="utf-8")
+        # switch: manifest recommends "parked" enabled, but it sits in the disabled folder
+        parked = self.home / ".claude/ai-global-disabled/skills/parked/SKILL.md"
+        parked.parent.mkdir(parents=True)
+        parked.write_text("# parked")
+        summary = self.run_align(yes=True)
+        kinds = sorted(c["kind"] for c in summary["conflicts"])
+        self.assertEqual(kinds, ["duplicate", "extra", "hook", "switch"])
+        summary = self.run_align(yes=True, resolve={
+            "claude:skill:stray": "trash", "claude:skill:dupe": "trash",
+            "claude:skill:parked": "enable", "hook:Stop:bash ~/.claude/hooks/gone.sh": "unwire"})
+        self.assertEqual(summary["unresolved"], [])
+        self.assertEqual(summary["failures"], [])
+        self.assertFalse((self.home / ".claude/skills/stray").exists())
+        self.assertFalse((self.home / ".claude/skills/dupe").exists())
+        self.assertTrue((self.home / ".ai-trash").rglob("stray"))
+        after = cap.read_json(self.home / ".claude/settings.json")
+        self.assertTrue((self.home / ".claude/skills/parked/SKILL.md").is_file())
+        self.assertFalse(parked.exists())
+        self.assertNotIn("Stop", after.get("hooks", {}))
+        self.assertTrue(any(p.name == "settings.json.before-unwire" for p in (self.home / ".ai-trash").rglob("*")))
+
+    def test_unknown_action_is_reported(self):
+        (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
+        (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")
+        summary = self.run_align(yes=True, resolve={"claude:skill:stray": "explode"})
+        self.assertTrue(any("不支援動作" in f for f in summary["failures"]))
+        self.assertTrue((self.home / ".claude/skills/stray").exists())
+
+
+if __name__ == "__main__":
+    unittest.main()

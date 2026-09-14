@@ -241,9 +241,9 @@ class Checks:
 
     def deployment(self, source, target, directory=False):
         # Deployed files are copies by design; a link here is a leftover from the
-        # old symlink layout and install.* will replace it.
+        # old symlink layout and deploy.py will replace it.
         if target.is_symlink():
-            self.report("WARN", f"本地部署是連結，應為實體副本（重跑 setup/install.*）：{target}")
+            self.report("WARN", f"本地部署是連結，應為實體副本（重跑 python setup/deploy.py）：{target}")
             return
         if not target.exists():
             self.report("WARN", f"本地部署缺失：{target}")
@@ -333,7 +333,7 @@ class Checks:
                 actual = self.codex_settings(home / ".codex/config.toml")
             if actual is not None:
                 self.compare_settings(expected, actual, section)
-        self.report("WARN", "本地對帳不代表當次會話已載入、讀取或遵循；僅比對白名單設定，未驗證操作權限。完整部署對帳用 setup/install.* check")
+        self.report("WARN", "本地對帳不代表當次會話已載入、讀取或遵循；僅比對白名單設定，未驗證操作權限。完整部署對帳用 python setup/deploy.py check")
 
 
 def main(argv=None):
