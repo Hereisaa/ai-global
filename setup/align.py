@@ -60,6 +60,10 @@ def pull(repo, echo):
     if status:
         echo("PULL    略過：工作樹有未提交變更，先處理再對齊")
         return "dirty"
+    ok, upstream = sh(["git", "rev-parse", "--abbrev-ref", "@{u}"], cwd=repo)
+    if not ok:
+        echo("PULL    略過：目前分支沒有 upstream；以目前 clone 內容對齊")
+        return "no-upstream"
     ok, output = sh(["git", "pull", "--ff-only"], cwd=repo)
     if not ok:
         echo(f"PULL    失敗（{output.splitlines()[-1] if output else '無輸出'}）；以目前 clone 內容對齊")
