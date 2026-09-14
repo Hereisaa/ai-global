@@ -62,6 +62,56 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 
 改東西的節奏：**改 clone → install → 驗證 → commit；push 依授權**（憲法 40）。
 
+## 指令與腳本總表
+
+### `/ai-global` 的 8 個指令（`claude/skills/ai-global/commands/`）
+
+| 指令 | 用途 | 動檔案？ |
+|---|---|---|
+| `check` | 唯讀對帳：部署漂移、治理、能力、settings 共用項 | 否 |
+| `sync` | pull → check → 必要裁決 → 部署 → 對帳 | 是 |
+| `deploy` | 只重新部署 repo 自己的檔（governance、router、hooks、ai-global skill），不 pull | 是 |
+| `govcheck` | 治理結構檢查：router 節次、路由、連結、manifest、sources 過期 | 否 |
+| `capabilities` | 列專案預設／本機既有能力與開關；可指定開關或開互動選單 | 只改指定項 |
+| `install <name>` | 補裝 manifest 中指定的一項（＝`align.py --only`） | 只該項 |
+| `align` | 一鍵對齊：pull → 部署 → 補裝缺項 → 衝突裁決（終端 TUI／Claude Code 對話）→ 對帳 | 自動項直接做；衝突只依使用者選擇 |
+| `evolve [source-id]` | 核對官方文件／changelog／marketplace 是否有變，寫 `docs/reports/harness-review-<日期>.md` | 只寫報告與核對日期 |
+
+`common.md` 是各指令共用的背景，不是指令。slash command 屬 Claude Code；Codex 直接跑下表同一套腳本。
+
+### `setup/` 腳本（Python 3.11+，任一 OS 同一指令）
+
+| 腳本 | 用途 |
+|---|---|
+| `deploy.py` | 部署／檢查（`install`｜`check`）：把 repo 檔複製到 `~/.ai-global`、`~/.claude`、`~/.codex`，記 state，舊檔進 trash |
+| `align.py` | 一鍵對齊主流程；`--plan` 唯讀、`--yes` 只套自動項、`--resolve KEY=ACTION`、`--only ID`、`--no-pull` |
+| `installers.py` | 依 manifest `source` 安裝單項：plugin 走 `claude`／`codex` CLI，`github:` 淺 clone 複製並寫 `.ai-global.json` |
+| `capabilities.py` | 能力清單（manifest vs 本機、兩個工具）與 `enable`／`disable`；Claude plugin 以 CLI 交叉驗證 |
+| `capabilities_tui.py` | prompt_toolkit 互動介面：能力開關選單、align 衝突選單（選配，`requirements-tui.txt`） |
+| `check_governance.py` | 治理靜態檢查＋`--local` 本機對帳；含 `manifest/sources.json` 過期提醒 |
+| `install-cleanup-agent.sh`／`install-cleanup-task.ps1` | 記憶體回收排程安裝器（launchd／schtasks，平台專屬故維持 sh/ps1） |
+| `test_*.py` | 測試：align、installers、deploy_controls、capabilities、capabilities_tui、check_governance、hooks |
+
+### align 的衝突類型與預設
+
+| 類型 | 意思 | 可選處置 | 預設 |
+|---|---|---|---|
+| `edited` | 部署檔在 repo 外被改過 | 以 repo 覆蓋／回寫 repo／保留 | 覆蓋（先於部署決定，「保留」不會被蓋） |
+| `extra` | 本機有、manifest 沒有 | 保留／停用／trash | 保留 |
+| `duplicate` | 獨立 skill 與 plugin 內同名 | trash／停用／保留 | trash |
+| `switch` | 本機開關與 manifest 建議相反 | 開／關／維持 | 維持本機選擇 |
+| `version` | 安裝版本與 manifest 不同 | 更新／維持 | 更新 |
+| `hook` | settings.json 指向不存在的 hook 腳本 | 保留／移除 | 保留 |
+
+### manifest 納管的第三方能力（不在 repo 內；`align` 補裝）
+
+| 工具 | 能力 |
+|---|---|
+| Claude | `kb-retriever`、`web-design-guidelines`、`frontend-design`、`ui-ux-pro-max`、`gsap-skills`、`typescript-lsp`、`context7`、`hookify`、`claude-md-management` |
+| Codex | `kb-retriever`、`web-design-guidelines`、`frontend-design`、`ui-ux-pro-max`、`gsap-skills`、`context7` |
+
+Claude 獨有的三個（`typescript-lsp`、`hookify`、`claude-md-management`）分別因 Codex 無 LSP plugin、hook schema 不同、目標檔是 CLAUDE.md 而不設 Codex 條目。正本以 `manifest/skills.json` 為準。
+
 ## 新機器上手
 
 clone 位置隨你，腳本會自己算出來並記進 state。
@@ -90,7 +140,7 @@ claude/
   CLAUDE.md                  Claude Code router → ~/.claude/CLAUDE.md
   statusline.sh              狀態列：repo·worktree、分支、模型、context、5h/7d 額度、token
   hooks/                     cleanup-orphans.{sh,ps1} → ~/.claude/hooks/（整目錄鏡像）
-  skills/ai-global/          按需分派器 + commands/{check,sync,deploy,govcheck,capabilities,install,evolve,common}.md
+  skills/ai-global/          按需分派器 + commands/{check,sync,deploy,govcheck,capabilities,install,align,evolve,common}.md
   commands/ agents/          自製 slash command 與 agent（需要時再建目錄；逐一部署）
 codex/AGENTS.md              Codex router → ~/.codex/AGENTS.md
 governance/                  憲法本體 → ~/.ai-global/governance/（整目錄鏡像）
