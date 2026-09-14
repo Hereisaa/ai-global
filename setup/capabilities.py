@@ -78,7 +78,7 @@ def claude_cli_plugins(home):
     if home != Path.home() or not shutil.which("claude"):
         return None
     try:
-        result = subprocess.run(["claude", "plugin", "list"], capture_output=True, text=True,
+        result = subprocess.run([shutil.which("claude"), "plugin", "list"], capture_output=True, text=True,
                                 encoding="utf-8", errors="replace", timeout=30)
     except (OSError, subprocess.SubprocessError):
         return None
@@ -87,22 +87,51 @@ def claude_cli_plugins(home):
     return parse_cli_plugins(result.stdout)
 
 
+def codex_cli_plugins(home):
+    """`codex plugin list` is the only place Codex states installed + version
+    (config.toml just holds the switch). Same real-home guard as the Claude one.
+    Returns {id: (installed, version)} or None when the CLI is unavailable."""
+    if home != Path.home() or not shutil.which("codex"):
+        return None
+    try:
+        result = subprocess.run([shutil.which("codex"), "plugin", "list"], capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return parse_codex_cli_plugins(result.stdout)
+
+
+def parse_codex_cli_plugins(text):
+    # Rows: "<id>  installed, enabled  <version>  <path>" or "<id>  not installed  <path>".
+    # Version is "local" for plugins that declare none; treated as unknown.
+    rows = {}
+    for m in re.finditer(r"(?m)^([\w.-]+@[\w.-]+)\s+(installed(?:, \w+)?|not installed)(?:\s+(\S+))?", text):
+        installed = m.group(2) != "not installed"
+        version = m.group(3) if installed and m.group(3) and m.group(3)[0].isdigit() else None
+        rows[m.group(1)] = (installed, version)
+    return rows
+
+
 def parse_cli_plugins(text):
     # Each entry starts with a marker glyph followed by "<plugin>@<marketplace>".
     return {m.group(1) for m in re.finditer(r"(?m)^\s*\S\s+([\w.-]+@[\w.-]+)\s*$", text)}
 
 
-def inventory(repo, home, cli_plugins=None):
+def inventory(repo, home, cli_plugins=None, codex_cli="auto"):
     wanted = defaults(repo)
     records = {}
+    if codex_cli == "auto":
+        codex_cli = codex_cli_plugins(home)
 
-    def add(tool, kind, identifier, installed=False, enabled=None, path=None, note=""):
+    def add(tool, kind, identifier, installed=False, enabled=None, path=None, note="", version=None):
         key = (tool, kind, identifier)
         default = wanted.get(key)
         records[key] = {"tool": tool, "kind": kind, "id": identifier,
                         "origin": "project-default" if default else "local-existing",
                         "default_enabled": default["default_enabled"] if default else None,
-                        "installed": installed, "enabled": enabled,
+                        "installed": installed, "enabled": enabled, "version": version,
                         "path": str(path) if path else None, "note": note}
 
     for tool, kind, identifier in wanted:
@@ -158,9 +187,14 @@ def inventory(repo, home, cli_plugins=None):
     for identifier, block in codex_plugins.items():
         if not isinstance(block, dict) or type(block.get("enabled", True)) is not bool:
             raise ControlError("Codex plugin 設定結構無效")
-        # A configured entry is not proof of installation or runtime loading.
-        add("codex", "plugin", identifier, None, block.get("enabled", True),
-            note="已設定；安裝與當次載入狀態請由 Codex 插件管理確認")
+        # A configured entry is not proof of installation; the CLI listing is.
+        if codex_cli is None or identifier not in codex_cli:
+            add("codex", "plugin", identifier, None, block.get("enabled", True),
+                note="已設定；安裝與當次載入狀態請由 Codex 插件管理確認")
+        else:
+            installed, version = codex_cli[identifier]
+            add("codex", "plugin", identifier, installed, block.get("enabled", True), version=version,
+                note="CLI 已列出" if installed else "已設定但 CLI 顯示未安裝")
     overrides = {}
     for entry in skill_settings:
         if not isinstance(entry, dict) or not isinstance(entry.get("path"), str) or type(entry.get("enabled")) is not bool:

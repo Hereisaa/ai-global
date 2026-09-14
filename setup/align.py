@@ -193,8 +193,9 @@ def find_conflicts(repo, home, deploy_results, rows):
             wanted_label = "開啟" if item["default_enabled"] else "關閉"
             conflicts.append(conflict("switch", key, f"開關與 manifest 建議相反：{row['id']}",
                                       f"manifest 建議{wanted_label}，本機目前{'開啟' if row['enabled'] else '關閉'}。", default=KEEP))
-        # Only Claude keeps an install registry with versions; Codex rows share the same id but carry no version.
-        if (row["tool"], row["kind"]) == ("claude", "plugin") and item.get("version") and versions.get(row["id"])                 and versions[row["id"]] != item["version"]:
+        # Claude: version from its install registry; Codex: from `codex plugin list` (None when unversioned).
+        local = versions.get(row["id"]) if row["tool"] == "claude" else row.get("version")
+        if row["kind"] == "plugin" and item.get("version") and local and local != item["version"]:
             conflicts.append(conflict("version", key, f"版本不同：{row['id']}",
                                       f"本機 {versions[row['id']]}，manifest {item['version']}。"))
     for event, command in dangling_hooks(home):

@@ -156,6 +156,14 @@ class CapabilityTests(unittest.TestCase):
             "  ❯ listed@m\n    Version: 1.0.0\n    Scope: user\n    Status: ✔ enabled\n"
             "  ❯ orphan@m\n    Status: ✔ enabled\n"
         )
+        codex = cap.parse_codex_cli_plugins(
+            "PLUGIN  STATUS  VERSION  PATH\n"
+            "ui-ux-pro-max@ui-ux-pro-max-skill  installed, enabled  2.13.0   C:/x\n"
+            "context7@claude-plugins-official  installed, enabled  local    C:/y\n"
+            "chrome@openai-bundled  not installed  C:/z\n")
+        self.assertEqual(codex, {"ui-ux-pro-max@ui-ux-pro-max-skill": (True, "2.13.0"),
+                                 "context7@claude-plugins-official": (True, None),
+                                 "chrome@openai-bundled": (False, None)})
         cli = cap.parse_cli_plugins(listing)
         self.assertEqual(cli, {"listed@m", "orphan@m"})
         rows = {(r["tool"], r["kind"], r["id"]): r for r in cap.inventory(self.repo, self.home, cli)}

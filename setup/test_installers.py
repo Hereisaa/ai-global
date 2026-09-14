@@ -24,6 +24,7 @@ class InstallerTests(unittest.TestCase):
         self.calls = []
 
     def fake_run(self, args, **kwargs):
+        args = [Path(args[0]).stem, *args[1:]]  # run_cli resolves the CLI to a full path
         self.calls.append(list(args))
         if args[:2] == ["git", "clone"]:
             return subprocess.run(args, **kwargs)  # real git against the local fixture repo

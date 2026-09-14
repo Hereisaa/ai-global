@@ -36,11 +36,13 @@ class AlignTests(unittest.TestCase):
         subprocess.run(["git", "init", "-q", str(self.repo)], check=True, capture_output=True)
         self.cli_calls = []
         self.echo_lines = []
+        self.codex_cli = None  # what `codex plugin list` would report; None = CLI unavailable
 
     def echo(self, line=""):
         self.echo_lines.append(str(line))
 
     def fake_run(self, args, **kwargs):
+        args = [Path(args[0]).stem, *args[1:]]  # run_cli resolves the CLI to a full path
         self.cli_calls.append(list(args))
         if args[0] == "claude" and args[1:3] == ["plugin", "install"]:
             # Emulate the CLI registering the plugin.
@@ -52,7 +54,7 @@ class AlignTests(unittest.TestCase):
         return FakeResult()
 
     def run_align(self, **kwargs):
-        with patch.object(installers, "subprocess") as sp, patch.object(cap, "claude_cli_plugins", lambda home: None):
+        with patch.object(installers, "subprocess") as sp, patch.object(cap, "claude_cli_plugins", lambda home: None),                 patch.object(cap, "codex_cli_plugins", lambda home: self.codex_cli):
             sp.run = self.fake_run
             sp.SubprocessError = subprocess.SubprocessError
             return align.run(self.repo, self.home, no_pull=True, tui=False, echo=self.echo, **kwargs)
@@ -171,6 +173,12 @@ class AlignTests(unittest.TestCase):
         (self.home / ".codex/config.toml").write_text('[plugins."wanted@m"]\nenabled = true\n', encoding="utf-8")
         summary = self.run_align(yes=True)
         self.assertEqual([c["key"] for c in summary["conflicts"] if c["kind"] == "version"], ["claude:plugin:wanted@m"])
+        # With the Codex CLI reporting an older install, the Codex row gets its own version conflict.
+        self.codex_cli = {"wanted@m": (True, "0.9.0")}
+        summary = self.run_align(yes=True)
+        self.assertEqual(sorted(c["key"] for c in summary["conflicts"] if c["kind"] == "version"),
+                         ["claude:plugin:wanted@m", "codex:plugin:wanted@m"])
+        self.codex_cli = None
         self.cli_calls.clear()
         summary = self.run_align(yes=True, resolve={"claude:plugin:wanted@m": "update"})
         self.assertFalse([f for f in summary["failures"] if "wanted@m" in f])  # parked's fake clone failing is fixture noise

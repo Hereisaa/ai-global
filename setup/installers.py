@@ -46,6 +46,8 @@ def move_to_trash(path, home, trash):
 def run_cli(args, run=None, timeout=300):
     """Run a tool CLI; return (ok, combined output). Never raises on failure."""
     run = run or subprocess.run  # resolved late so tests can substitute subprocess
+    # Windows installs claude/codex as .CMD shims; CreateProcess needs the resolved path.
+    args = [shutil.which(args[0]) or args[0], *args[1:]]
     try:
         result = run(args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     except (OSError, subprocess.SubprocessError) as exc:
