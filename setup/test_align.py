@@ -69,10 +69,11 @@ class AlignTests(unittest.TestCase):
         self.assertIn("wanted@m", summary["missing"])
         self.assertEqual([c["kind"] for c in summary["conflicts"]], ["extra"])
         output = "\n".join(self.echo_lines)
-        self.assertIn("== PLAN 部署差異", output)
+        self.assertIn("--plan，唯讀", output)
         self.assertIn("MISSING", output)
-        self.assertIn("== PLAN 要補裝的 manifest 缺項", output)
-        self.assertIn("== CONFLICT 需要你決定（1 項）", output)
+        self.assertIn("INSTALL", output)
+        self.assertIn("CONFLICT 1 項", output)
+        self.assertIn("DONE     1 項衝突待決", output)
 
     def test_yes_deploys_installs_and_reports_conflicts_without_touching_them(self):
         stray = self.home / ".claude/skills/stray/SKILL.md"

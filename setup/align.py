@@ -62,20 +62,20 @@ def sh(args, cwd=None):
 def pull(repo, echo):
     ok, status = sh(["git", "status", "--porcelain"], cwd=repo)
     if not ok:
-        echo("PULL    略過：無法讀取 git 狀態")
+        echo(line("!", "PULL", "略過：無法讀取 git 狀態"))
         return "skipped"
     if status:
-        echo("PULL    略過：工作樹有未提交變更，先處理再對齊")
+        echo(line("!", "PULL", "略過：工作樹有未提交變更，先處理再對齊"))
         return "dirty"
     ok, upstream = sh(["git", "rev-parse", "--abbrev-ref", "@{u}"], cwd=repo)
     if not ok:
-        echo("PULL    略過：目前分支沒有 upstream；以目前 clone 內容對齊")
+        echo(line("!", "PULL", "略過：目前分支沒有 upstream；以目前 clone 內容對齊"))
         return "no-upstream"
     ok, output = sh(["git", "pull", "--ff-only"], cwd=repo)
     if not ok:
-        echo(f"PULL    失敗（{output.splitlines()[-1] if output else '無輸出'}）；以目前 clone 內容對齊")
+        echo(line("x", "PULL", f"失敗（{output.splitlines()[-1] if output else '無輸出'}）；以目前 clone 內容對齊"))
         return "failed"
-    echo("PULL    " + (output.splitlines()[-1] if output else "ok"))
+    echo(line("v", "PULL", output.splitlines()[-1] if output else "ok"))
     return "pulled"
 
 
@@ -208,7 +208,7 @@ def find_conflicts(repo, home, deploy_results, rows):
 
 def apply_action(c, action, repo, home, trash, echo):
     if action == KEEP:
-        echo(f"KEEP    {c['title']}")
+        echo(line("v", "KEEP", c["title"]))
         return
     kind, key = c["kind"], c["key"]
     if kind == "edited":
@@ -217,7 +217,7 @@ def apply_action(c, action, repo, home, trash, echo):
             target = Path(c["path"])
             rel = repo_relative(home, target)
             shutil.copy2(target, repo / rel)
-            echo(f"WRITEBACK {rel} <- {target}")
+            echo(line("v", "WRITEBACK", f"{rel} <- {target}"))
         return
     tool, ckind, identifier = key.split(":", 2)
     if action in ("enable", "disable"):
@@ -227,7 +227,7 @@ def apply_action(c, action, repo, home, trash, echo):
         if not row.get("path"):
             raise installers.InstallError(f"沒有可移動的路徑：{identifier}")
         dest = installers.move_to_trash(Path(row["path"]), home, trash)
-        echo(f"TRASH   {row['path']} -> {dest}")
+        echo(line("v", "TRASH", f"{row['path']} -> {dest}"))
     elif action == "update":
         item = cap.defaults(repo)[(tool, ckind, identifier)]
         installers.update_plugin(item, echo=echo)
@@ -299,10 +299,10 @@ def ensure_tui(repo, argv, *, ask=input, run=subprocess.run, echo=print, env=os.
         for cmd in ([sys.executable, "-m", "venv", str(repo / ".venv")],
                     [str(python), "-m", "pip", "install", "-q", "-r", str(REQUIREMENTS)]):
             if run(cmd).returncode != 0:
-                echo(f"FAIL    {' '.join(cmd)}；改用文字模式。")
+                echo(line("x", "VENV", f"{' '.join(cmd)} 失敗；改用文字模式"))
                 return None
-        echo(f"PUT     {python}（prompt_toolkit）")
-    echo(f"RUN     {python} setup/align.py（互動選單）")
+        echo(line("v", "VENV", f"已建立 {python}，裝好 prompt_toolkit"))
+    echo(line("!", "VENV", f"改用 {python} 重新執行（開互動選單）"))
     sys.stdout.flush()  # keep our lines ahead of the child's when piped
     return run([str(python), str(Path(__file__).resolve()), *argv], env={**env, REEXEC_FLAG: "1"}).returncode
 
@@ -320,12 +320,23 @@ def tilde(home, text):
     return text
 
 
-def section(echo, title, header, rows, empty):
-    """One phase of output: a heading, then a table or a one-line 'nothing to do'."""
+MARK = {"v": "√", "o": "●", "x": "×", "!": "!"}  # all inside Big5/CP950 so Windows consoles print them
+RULE = "─" * 64
+
+
+def line(mark, tag, text=""):
+    """One status row: mark, fixed-width phase tag, message."""
+    return f"{MARK.get(mark, mark)} {tag:<9}{text}"
+
+
+def section(echo, tag, header, rows, empty):
+    """One phase of output: a status row, then the table when there is anything to show."""
+    if not rows:
+        echo(line("v", tag, empty))
+        return
+    echo(line("o", tag, f"{len(rows)} 項"))
+    echo(cap.table(header, rows, indent="    "))
     echo("")
-    echo(f"== {title}（{len(rows)} 項）" if rows else f"== {title}：{empty}")
-    if rows:
-        echo(cap.table(header, rows, indent="   "))
 
 
 # ---------------------------------------------------------------- main
@@ -336,11 +347,11 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     decided after the install pass so freshly installed items are visible."""
     trash = installers.trash_dir(home)
     failures = []
-    echo(f"repo:   {repo}")
-    echo(f"home:   {home}")
+    echo(f"ai-global align{'（--plan，唯讀）' if plan else ''}   {repo}  →  {home}")
+    echo(RULE)
     pulled = None if plan or no_pull else pull(repo, echo)
     check = deploy.run(repo, home, "check", echo=lambda *_: None)
-    section(echo, "PLAN 部署差異" if plan else "DRIFT 部署漂移", ["狀態", "檔案", "說明"],
+    section(echo, "DRIFT", ["狀態", "檔案", "說明"],
             [[status, tilde(home, path), note] for status, path, note in check["results"]
              if status != "OK" and (plan or status != "EDITED")], "已同步")
     cli = cap.claude_cli_plugins(home)
@@ -376,7 +387,7 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
                 apply_action(c, action, repo, home, trash, echo)
             except (installers.InstallError, cap.ControlError, OSError) as exc:
                 failures.append(f"{c['key']}: {exc}")
-                echo(f"FAIL    {c['key']}: {exc}")
+                echo(line("x", "FAIL", f"{c['key']}: {exc}"))
         return unresolved
 
     # 1. Deployed files: decide EDITED ones, then deploy with "keep" honoured.
@@ -388,17 +399,16 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     unresolved += [c for c in edited if chosen.get(c["key"]) is None]
     for c in edited:
         if chosen.get(c["key"]) in ("overwrite", KEEP):
-            echo(f"{'OVERWRITE' if chosen[c['key']] == 'overwrite' else 'KEEP   '} {c['title']}")
+            echo(line("v", "OVERWRITE" if chosen[c["key"]] == "overwrite" else "KEEP", c["title"]))
     if plan:
         result = check
     else:
         result = deploy.run(repo, home, "install", echo=lambda *_: None, keep_edited=keep)
-        section(echo, "DEPLOY 部署 repo 自己的檔", ["動作", "檔案", "說明"],
+        section(echo, "DEPLOY", ["動作", "檔案", "說明"],
                 [[status, tilde(home, path), note] for status, path, note in result["results"] if status != "OK"],
-                "全部已是最新")
-        echo(f"   STATE {tilde(home, result['state_path'])} -> {result['commit'][:9]}")
+                f"全部已是最新（state {result['commit'][:9]}）")
         if result["trash"]:
-            echo(f"   NOTE  被取代的檔在 {tilde(home, result['trash'])}（確認後自行清空）")
+            echo(f"    trash  {tilde(home, result['trash'])}（被取代的檔；確認後自行清空）")
 
     # 2. Missing manifest items: automatic.
     wanted = cap.defaults(repo)
@@ -421,8 +431,7 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
         name = f"{item['tool']} {item['type']} {item['id']}"
         notes = [tilde(home, TAG_RE.sub("", line)) for line in lines]
         installed.append([outcome, name, "；".join(n for n in notes if n != name)])
-    section(echo, "PLAN 要補裝的 manifest 缺項" if plan else "INSTALL 補裝 manifest 缺項",
-            ["動作", "項目", "說明"], installed, "沒有缺項")
+    section(echo, "INSTALL", ["動作", "項目", "說明"], installed, "沒有缺項")
 
     # 3. Capability conflicts: decided on the post-install inventory.
     if missing and not plan:
@@ -432,16 +441,22 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     decide(others)
     unresolved += apply(others)
 
-    section(echo, "CONFLICT 需要你決定", ["類型", "KEY（--resolve 用）", "說明", "預設"],
+    section(echo, "CONFLICT", ["類型", "KEY（--resolve 用）", "說明", "預設"],
             [[c["kind"], c["key"], tilde(home, c["detail"]), c["default"]] for c in unresolved], "沒有衝突")
     if unresolved:
-        echo("   選項：")
         for kind in dict.fromkeys(c["kind"] for c in unresolved):
-            echo(f"   {kind:<9} " + " / ".join(f"{a}={label}" for a, label in CONFLICT_ACTIONS[kind]))
-        echo("   指定方式：python setup/align.py --no-pull --resolve KEY=ACTION ...；在真正的終端執行則開互動選單。")
-    if trash.exists():
+            echo(f"    {kind:<10}" + " / ".join(f"{a}={label}" for a, label in CONFLICT_ACTIONS[kind]))
+        echo("    指定：python setup/align.py --no-pull --resolve KEY=ACTION ...（在真正的終端執行則開互動選單）")
         echo("")
-        echo(f"   NOTE  被取代的項目在 {tilde(home, trash)}")
+    if trash.exists():
+        echo(f"    trash  {tilde(home, trash)}（被取代的項目）")
+    echo(RULE)
+    if failures:
+        echo(line("x", "DONE", f"{len(failures)} 項失敗"))
+    elif unresolved:
+        echo(line("!", "DONE", f"{len(unresolved)} 項衝突待決"))
+    else:
+        echo(line("v", "DONE", "完成"))
     return {"pull": pulled, "deploy": result, "missing": [i["id"] for i in missing],
             "conflicts": conflicts, "unresolved": unresolved, "failures": failures}
 
@@ -458,6 +473,8 @@ def main(argv=None):
     parser.add_argument("--json", action="store_true", help="最後輸出 JSON 摘要")
     parser.add_argument("--no-venv", action="store_true", help="缺 prompt_toolkit 時不建 .venv，直接用文字模式")
     args = parser.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")  # never crash on a console code page missing a glyph
     if not (args.plan or args.yes or args.no_venv) and sys.stdin.isatty() and sys.stdout.isatty():
         code = ensure_tui(args.repo.resolve(), sys.argv[1:] if argv is None else list(argv))
         if code is not None:
