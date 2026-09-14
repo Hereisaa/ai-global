@@ -5,9 +5,8 @@
 #   --scope session   Run from a SessionEnd hook. Kills helper processes
 #                     (MCP servers, dev servers, headless browsers) that
 #                     descend from the ending session only.
-#   --scope global    Run from a launchd agent. Kills orphaned helpers,
-#                     reports long-lived / large `claude` sessions, and
-#                     reports or stops an idle container VM.
+#   --scope global    Report orphan candidates, large sessions and VM usage.
+#                     Lost ancestry cannot prove ownership; never stop them.
 #
 # Safety rules (mirror the Windows script):
 #   * A `claude` main process is NEVER killed. Remote Control is a long-lived
@@ -23,9 +22,7 @@
 #     is never a candidate — that is a service the user registered on purpose.
 #   * Only processes owned by the invoking user are ever considered.
 #   * Extra regexes in ~/.claude/cleanup-protect.txt are skipped.
-#   * Stopping the container VM sticks: the supervising `colima start -f`
-#     launchd job keeps running after the VM goes down, so KeepAlive never
-#     fires and the VM stays stopped until it is kickstarted.
+
 
 set -u
 
@@ -163,7 +160,7 @@ END {
       if (base(COMM[p]) == "claude") continue
       if (descends_from(p, self)) continue
       if (!descends_from(p, claude)) continue
-      if (protected(p)) continue
+      if (protected(p) || rc_lineage(p)) continue
       if (!is_helper(p)) continue
       print "KILL", p, RSS[p], helper_name(p), "descendant of ending session " claude
     }
@@ -177,7 +174,7 @@ END {
     if (protected(p)) continue
     if (!is_helper(p)) continue
     if (rc_lineage(p)) continue
-    print "KILL", p, RSS[p], helper_name(p), "orphan (reparented to launchd)"
+    print "REPORT", p, RSS[p], helper_name(p), "ownership unknown (parent gone)"
   }
 
   for (p in PPID) {
@@ -216,6 +213,7 @@ while IFS= read -r line; do
         killed=$((killed + 1))
       fi
       ;;
+    REPORT*) log "${line#REPORT } (report only)" ;;
     WARN*)
       set -- $line
       warns="${warns}${warns:+; }pid $2: $3MB, $4h${5:+ $5}"
@@ -233,22 +231,13 @@ if [ -n "$warns" ]; then
   osascript -e "display notification \"$warns\" with title \"Claude Code: long-lived sessions\"" 2>/dev/null
 fi
 
-# Container VM: only when it has grown AND nothing is using it.
+# Global VM ownership cannot be attributed to an ending session.
 if [ "${vm_mb:-0}" -ge "$VM_SHUTDOWN_MB" ]; then
-  containers=$(docker ps -q 2>/dev/null | grep -c . || true)
-  if [ "${containers:-1}" -eq 0 ]; then
-    restart_hint="launchctl kickstart -k gui/\$(id -u)/homebrew.mxcl.colima"
-    if [ "$DRY_RUN" = 1 ]; then
-      log "DRYRUN colima stop (VM ${vm_mb}MB, no containers)"
-    elif command -v colima >/dev/null 2>&1; then
-      if colima stop >/dev/null 2>&1; then
-        log "colima stop (VM ${vm_mb}MB, no containers); restart with: $restart_hint"
-      else
-        log "colima stop failed (VM ${vm_mb}MB)"
-      fi
-    fi
+  if containers=$(docker ps -q 2>/dev/null); then
+    count=$(printf '%s' "$containers" | grep -c . || true)
+    log "VM ${vm_mb}MB containers=$count (report only; other VM work may exist)"
   else
-    log "VM ${vm_mb}MB but in use (containers=$containers)"
+    log "VM ${vm_mb}MB usage unknown: docker query failed (report only)"
   fi
 fi
 

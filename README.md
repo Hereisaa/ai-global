@@ -42,7 +42,7 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
                 ──commit──▶ 本機 git ──push（需授權）──▶ origin ──pull──▶ 另一台 clone ──install──▶ …
 ```
 
-不在這條線上的：`~/.claude/settings.json`、`~/.codex/config.toml` 由工具自己回寫，只用 `manifest/settings.json` 對帳；`manifest/` 整個只留在 clone。`git pull` 不會自動改全域——腳本裝的 `post-merge`／`post-rewrite` hook 只提醒你跑 check。
+不在這條線上的：`~/.claude/settings.json`、`~/.codex/config.toml` 由工具自己回寫，一般共用項只用 `manifest/settings.json` 對帳；能力開關由 `setup/capabilities.py` 按指定項更新並保留其他設定；`manifest/` 整個只留在 clone。`git pull` 不會自動改全域——腳本只在不存在時建立 `post-merge`／`post-rewrite` 提醒 hook，不覆蓋既有 hook。
 
 ## 日常操作
 
@@ -52,10 +52,11 @@ BEHIND／EDITED 靠 hash 不靠 commit，所以從未 commit 的工作樹部署�
 | 另一台改了 | `/ai-global sync`（pull → check → 裁決 → install → 對帳） |
 | 新機器／重裝 | `/ai-global deploy`；沒 Claude 時直接跑 `setup/install.*` |
 | 改完 router／制度檔 | `/ai-global govcheck` 或 `python setup/check_governance.py` |
+| 查看專案預設／本機既有及開關 | `/ai-global capabilities` 或 `python setup/capabilities.py list` |
 | 補一個第三方能力 | `/ai-global install <name>` |
 | 手動 | macOS `bash setup/install.sh [check]`；Windows `powershell -ExecutionPolicy Bypass -File setup\install.ps1 [-Mode check]` |
 
-`/ai-global` 不帶參數會列選單。`check` 唯讀；install 輸出的 `WARN`／`DROP`／`NOTE` 是「哪些東西被換掉、放在哪」的唯一紀錄。
+`/ai-global` 可依明確自然語言分派；沒有參數或可判斷意圖才列選單。`check` 唯讀；install 輸出的 `WARN`／`DROP`／`NOTE` 是「哪些東西被換掉、放在哪」的唯一紀錄。
 
 改東西的節奏：**改 clone → install → 驗證 → commit；push 依授權**（憲法 40）。
 
@@ -78,7 +79,7 @@ powershell -ExecutionPolicy Bypass -File D:\GitHub\ai-global\setup\install.ps1 -
 
 目標位置若已有你自己的 `CLAUDE.md`／`AGENTS.md`：先跑 `check` 會報 `EDITED`；install 會取代它並把原檔放進 `~/.ai-trash/`。
 
-裝完開一個 Claude Code session 跑 `/ai-global check`，補齊第三方能力與 settings 共用項。
+裝完跑 `/ai-global check` 或 `python setup/capabilities.py list`，查看專案預設與本機既有能力。缺項只回報，由使用者決定是否安裝；既有開關不因部署或 sync 重設。
 
 ### 從 symlink 時代升級（2026-09-07 前裝的機器，一次性）
 
@@ -91,14 +92,15 @@ claude/
   CLAUDE.md                  Claude Code router → ~/.claude/CLAUDE.md
   statusline.sh              狀態列：repo·worktree、分支、模型、context、5h/7d 額度、token
   hooks/                     cleanup-orphans.{sh,ps1}、stop-typecheck.sh → ~/.claude/hooks/（整目錄鏡像）
-  skills/ai-global/          20 行分派器 + commands/{check,sync,deploy,govcheck,install,common}.md
+  skills/ai-global/          按需分派器 + commands/{check,sync,deploy,govcheck,capabilities,install,common}.md
   commands/ agents/          自製 slash command 與 agent（目前空；逐一部署）
 codex/AGENTS.md              Codex router → ~/.codex/AGENTS.md
 governance/                  憲法本體 → ~/.ai-global/governance/（整目錄鏡像；backups/ 不部署）
 manifest/skills.json         第三方能力清單（名稱＋來源＋版本）
 manifest/settings.json       settings 共用基準（Claude 四個區塊；Codex 只有 personality）
 setup/install.sh|.ps1        部署與檢查，兩支語意完全相同
-setup/check_governance.py    治理靜態檢查（+ test_check_governance.py，35 個測試）
+setup/check_governance.py    治理靜態檢查與本機對帳
+setup/capabilities.py        能力來源、狀態清單及本機開關
 setup/install-cleanup-*.{sh,ps1}  記憶體回收排程安裝器
 docs/reference/              agent-runtime.md（工具機制）、governance-evaluation.md（驗收情境）
 .github/workflows/governance.yml  三 OS 跑 checker 與測試
@@ -115,9 +117,9 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 | 比對 | 位元組比對；hash 用 `git hash-object` | 兩平台語意一致，和 git blob 對得上 |
 | 狀態檔 | 手寫 JSON，一行一 key | bash 端用 sed 就讀得動 |
 | checker | Python 3.9+ 標準庫；`tomllib`（3.11+）讀 Codex config | 三 OS CI 零依賴 |
-| 測試 | `unittest` 記憶體 fixture，不碰磁碟 | 0.04 秒跑完 |
-| skill | Claude Code skill，`$ARGUMENTS` 分派 | 無參數只載 20 行就彈選單 |
-| 記憶體回收 | macOS bash＋launchd；Windows PowerShell＋Task Scheduler | 同語意同 log |
+| 測試 | `unittest`，隔離 fixture | 驗證治理、部署與能力開關行為 |
+| skill | Claude Code skill，`$ARGUMENTS` 分派 | 按需載入命令，已有意圖不重問 |
+| 記憶體回收 | macOS bash＋launchd；Windows PowerShell 手動 | 同語意同 log |
 | 行尾 | `.gitattributes` 強制 LF | macOS 的 shebang 需要 |
 
 ## 給 AI agent 的指引
@@ -125,12 +127,26 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 **Claude Code 已部署過的機器**：用 `/ai-global`。
 
 **全新機器（skill 還不存在）或 Codex**：
-1. 判斷 OS，跑對應 `setup/install.*`（冪等；被取代的既有檔移入 `~/.ai-trash/`）。目標位置已有使用者自己的 router 時，先 `check`、**明講會被取代並取得同意**，再 install。
-2. 照 `manifest/skills.json` 補裝：`plugin` 引導用 `/plugin`；`skill` 從 `source`（有 `path` 就抓該子目錄）放入 `~/.claude/skills/<name>/`；`command` 放入 `target`。
-3. 照 `manifest/settings.json` 核對本機 `~/.claude/settings.json` 與 `~/.codex/config.toml` 的共用 key，缺漏回報使用者裁決後補上。
-4. 逐項回報 PASS/FAIL 附證據。
+1. 確認 OS 與 clone，先跑治理 checker 及 `setup/install.* check`；看清既有 router 差異。需要取代且既有授權未涵蓋時，告知影響與備份位置後取得同意。
+2. 在授權內執行部署並 check 驗證；被取代內容保留至 `~/.ai-trash/`，不自動安裝第三方。
+3. 跑 `python setup/capabilities.py list`，列專案預設與本機既有能力及啟用狀態。共用設定按需對帳，不自動覆寫本機選擇。
+4. 回報變更、證據、限制與分支。第三方安裝、敏感設定或未涵蓋的衝突才另行彙整裁決。
+
+### 能力選項
+
+清單涵蓋使用者全域層，不含專案或系統層。`manifest/skills.json` 以 `tool`、`id`、`default_enabled` 描述專案建議；預設值不強制覆寫本機。插件附帶的 skills 由所屬插件開關。Codex 插件目前只能確認本機開關設定，沒有可靠安裝登錄時安裝狀態顯示未知。
+
+```bash
+python setup/capabilities.py list
+python setup/capabilities.py disable --tool codex --kind plugin --id <ID>
+python setup/capabilities.py enable --tool claude --kind skill --id <ID>
+```
+
+使用 list 提供的工具、種類與精確 ID。清單區分專案預設與本機既有，並列出安裝及啟用狀態；未列管項目保留，不代表需要刪除或納管。明確要求某項開關即可執行，不再次確認。切換使用原生設定或可逆停用方式，保留其他設定與本機偏好，sync 不重設它們。list 唯讀；開關不下載、不卸載、不變更 manifest。未支援或無法判斷的狀態明示限制，設定驗證不代表現有工作階段已重新載入。
 
 **紅線（對 agent 強制）**：不直接編輯部署端（`~/.claude/CLAUDE.md`、`~/.codex/AGENTS.md`、`~/.ai-global/**`）；禁止 `rm`／程式化刪除，一律 `mv` 進 `~/.ai-trash/`；push 須使用者對具體遠端／分支明確授權；任何真實憑證不進 repo；改 `governance/` 先讀 `governance/40-maintenance.md`。
+
+開關的保存位置：Claude 插件使用 `settings.json` 的 `enabledPlugins`；Codex 使用 `config.toml` 的插件設定與 `skills.config`（需 Python 3.11+）。Claude 獨立 skill／command 停用時移入 `~/.claude/ai-global-disabled/{skills,commands}/<name>`，部署會保留停用狀態。設定修改前備份到 `~/.ai-trash/ai-global-settings-<唯一值>/`，不輸出秘密。
 
 ## hooks 與記憶體回收（機器本地、手動接）
 
@@ -138,26 +154,25 @@ docs/reference/              agent-runtime.md（工具機制）、governance-eva
 
 | 腳本 | 接法 |
 |---|---|
-| `stop-typecheck.sh` | `Stop` hook：`bash ~/.claude/hooks/stop-typecheck.sh`——有髒的 `.ts/.tsx` 且專案有 `typecheck` script 時跑，失敗就擋下並把錯誤餵回去 |
+| `stop-typecheck.sh` | 舊入口已退役為不執行檢查；必要 typecheck 由任務驗收依專案套件管理器執行，避免其他 session 的髒檔觸發重跑 |
 | `cleanup-orphans.sh`（macOS） | `SessionEnd`：`bash ~/.claude/hooks/cleanup-orphans.sh --scope session`；排程：`bash setup/install-cleanup-agent.sh`（launchd，每 2h；`--interval-hours N`、`--uninstall`） |
-| `cleanup-orphans.ps1`（Windows） | `SessionEnd`：`powershell -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude\hooks\cleanup-orphans.ps1" -Scope session`；排程：`setup\install-cleanup-task.ps1`（每 2h；`-IntervalHours N`、`-Uninstall`） |
+| `cleanup-orphans.ps1`（Windows） | 自 2026-09-08 改為手動：桌面「Claude 清理背景程序.cmd」或 `~/.claude/hooks/cleanup-orphans.ps1 -Scope global`；既有排程工作 `ClaudeCodeOrphanCleanup` 與失效的 SessionEnd hook 已移除，不因部署重新掛載 |
 
-記憶體回收清的是孤兒程序（MCP server、dev server、模擬器、headless 瀏覽器）與只長不縮的容器 VM（Windows vmmem；macOS Colima／lima）。安全規則：**絕不殺 `claude` 主程序**，命令列含 `remote-control` 的整棵子樹跳過；超過 1.5 GB 或 24 小時的 session 只發通知；`--dry-run`／`-DryRun` 預演；log 在 `~/.claude/logs/cleanup.log`。macOS 差異：只看自己 uid、`launchctl list` 裡的 PID 一律跳過、`~/.claude/cleanup-protect.txt` 可加保護 regex；`colima stop` 後 launchd 不會自動拉回，log 附重啟指令。原生 Windows 跑 bash 腳本需 Git Bash。
+清理腳本的 global 模式只回報候選程序與 VM，不因名稱相似或父程序消失就終止程序。session 模式只處理可證明屬於該 session 的後代輔助程序，逐候選排除 `remote-control`；主程序不清理。查詢失敗時保留現況，不能當成「沒有工作」。支援 `--dry-run`／`-DryRun`，log 在 `~/.claude/logs/cleanup.log`。Windows 採手動是因先前 hook 的 `%USERPROFILE%` 未展開、長期沒有有效執行紀錄；排程安裝器保留為手動工具，部署不啟用它。實際掛載仍屬各機器設定。
 
 ## 治理檢查
 
 ```bash
-python setup/check_governance.py            # 離線：router 節次對齊與各自前綴、制度路由、相對連結、manifest 結構
+python setup/check_governance.py --local    # 已包含離線檢查；只驗 repo 時省略 --local
 python -m unittest discover -s setup -p 'test_*.py'
-python setup/check_governance.py --local    # 加本機副本內容與白名單設定欄位
 ```
 
-離線檢查 Python 3.9+；`--local` 的 Codex TOML 對帳需 3.11+。CI（`.github/workflows/governance.yml`）在 push／PR 於三個 OS 跑前兩項——工作流程存在不等於分支保護已設。這些檢查驗結構與連結，**不證明模型遵循**；真正的強制在 sandbox／permissions／hooks／CI。完整部署對帳仍以 `setup/install.* check` 與 `/ai-global` 為準。[驗收情境](docs/reference/governance-evaluation.md)、[執行環境參考](docs/reference/agent-runtime.md)。
+離線 checker 需 Python 3.9+；能力 CLI、完整測試套件及 `--local` 的 Codex TOML 對帳需 Python 3.11+。CI（`.github/workflows/governance.yml`）在 push／PR 於三個 OS 跑離線 checker 與測試——工作流程存在不等於分支保護已設。這些檢查驗結構與連結，**不證明模型遵循**；真正的強制在 sandbox／permissions／hooks／CI。完整部署對帳仍以 `setup/install.* check` 與 `/ai-global` 為準。[驗收情境](docs/reference/governance-evaluation.md)、[執行環境參考](docs/reference/agent-runtime.md)。
 
 ## 已知邊界
 
 - Markdown 是行為約定，不是隔離：checker 與 `--local` 只驗「檔在、內容對」，不驗「當次 session 真的載入或遵循」。
-- `/ai-global` 彈選單仍是一次模型回合，快不到 shell alias。
+- 工具產生的能力清單只涵蓋可辨識的本機來源與設定；未知狀態不能當成已啟用或停用。
 - manifest 的 `codex_config` 只共用 `personality`；`model`／`model_reasoning_effort` 是各機器本機獨有（使用者裁決）。
 
 ## 紅線

@@ -179,6 +179,39 @@ class GovernanceTests(unittest.TestCase):
         self.files[self.root / checker.RUNTIME_DOC] += "[policy](../../governance/50-safety.md#section)\n"
         self.assertEqual(self.run_repository(), 0)
 
+    def test_skill_command_links_are_checked(self):
+        self.files[self.root / "claude/skills/ai-global/commands/capabilities.md"] = "# Capabilities\n[broken](absent.md)\n"
+        self.assertEqual(self.run_repository(), 1)
+        self.assertIn("commands/capabilities.md:2", self.output())
+
+    def test_deployed_external_links_use_source_repo_not_home(self):
+        path = Path("/virtual/home/.ai-global/governance/10-dispatch.md")
+        self.checks.links(path, "deployed", "[runtime](../docs/reference/agent-runtime.md)",
+                          deployed=True, source_repo=self.root)
+        self.assertEqual(self.checks.results, [])
+        self.checks.links(path, "deployed", "[missing](../docs/reference/missing.md)",
+                          deployed=True, source_repo=self.root)
+        self.assertEqual(self.checks.exit_code, 1)
+
+    def test_deployed_internal_links_stay_in_deployment(self):
+        path = Path("/virtual/home/.ai-global/governance/10-dispatch.md")
+        self.checks.links(path, "deployed", "[policy](20-judgment.md)",
+                          deployed=True, source_repo=self.root)
+        self.assertEqual(self.checks.exit_code, 1)
+
+    def test_deployed_external_link_without_state_is_unverified(self):
+        path = Path("/virtual/home/.ai-global/governance/10-dispatch.md")
+        self.checks.links(path, "deployed", "[runtime](../docs/reference/agent-runtime.md)", deployed=True)
+        self.assertIn("WARN 無法驗證跨目錄連結", self.output())
+
+    def test_disabled_ai_global_is_used_by_local_check(self):
+        home = Path("/virtual/home")
+        disabled = home / ".claude/ai-global-disabled/skills/ai-global/SKILL.md"
+        self.files[disabled] = self.files[self.root / checker.SYNC_SKILL]
+        with patch.object(self.checks, "deployment") as deployed, patch.object(self.checks, "deployed_links"):
+            self.checks.local(self.root, home, None)
+        deployed.assert_any_call(self.root / checker.SYNC_SKILL, disabled)
+
     def test_unscoped_and_backup_documents_are_not_scanned(self):
         for name in ("other/invalid.md", "governance/backups/old.md", "docs/reference/backups/old.md"):
             self.files[self.root / name] = "[broken](absent.md)\n"

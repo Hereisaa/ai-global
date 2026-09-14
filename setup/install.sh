@@ -16,9 +16,10 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MODE="${1:-install}"
-GLOBAL="$HOME/.ai-global"
+TARGET_HOME="${AI_GLOBAL_TARGET_HOME:-$HOME}"
+GLOBAL="$TARGET_HOME/.ai-global"
 STATE="$GLOBAL/.deploy-state.json"
-TRASH="$HOME/.ai-trash/ai-global-deploy-$(date +%Y%m%d-%H%M%S)"
+TRASH="$TARGET_HOME/.ai-trash/ai-global-deploy-$(date +%Y%m%d-%H%M%S)-$$"
 FAIL=0
 
 case "$MODE" in
@@ -50,8 +51,9 @@ prev_hash() { # prev_hash <repo-rel> -> blob hash recorded at the last deploy, o
 }
 
 backup() { # backup <path> - never delete, park in trash keeping the structure
-  local p="$1" label="${1#"$HOME"/}"
+  local p="$1" label="${1#"$TARGET_HOME"/}"
   mkdir -p "$TRASH/$(dirname "$label")"
+  if [ -e "$TRASH/$label" ] || [ -L "$TRASH/$label" ]; then echo "trash destination exists" >&2; exit 1; fi
   mv "$p" "$TRASH/$label"
 }
 
@@ -154,31 +156,41 @@ if [ -d "$GLOBAL" ]; then
   done
 fi
 
-put_dir "claude/hooks"          "$HOME/.claude/hooks"
-put     "claude/CLAUDE.md"      "$HOME/.claude/CLAUDE.md"
-put     "claude/statusline.sh"  "$HOME/.claude/statusline.sh"
-put     "codex/AGENTS.md"       "$HOME/.codex/AGENTS.md"
+put_dir "claude/hooks"          "$TARGET_HOME/.claude/hooks"
+put     "claude/CLAUDE.md"      "$TARGET_HOME/.claude/CLAUDE.md"
+put     "claude/statusline.sh"  "$TARGET_HOME/.claude/statusline.sh"
+put     "codex/AGENTS.md"       "$TARGET_HOME/.codex/AGENTS.md"
 
 # Repo-owned skills/commands/agents are deployed item by item so third-party
 # installs keep coexisting in the same parent directories.
 for d in "$REPO"/claude/skills/*/; do
   [ -d "$d" ] || continue
   n="$(basename "$d")"
-  put_dir "claude/skills/$n" "$HOME/.claude/skills/$n"
+  if [ -e "$TARGET_HOME/.claude/ai-global-disabled/skills/$n" ]; then
+    echo "DISABLED claude/skills/$n - preserving local choice"
+    put_dir "claude/skills/$n" "$TARGET_HOME/.claude/ai-global-disabled/skills/$n"
+  else
+    put_dir "claude/skills/$n" "$TARGET_HOME/.claude/skills/$n"
+  fi
   manage "claude/skills/$n"
 done
 for f in "$REPO"/claude/commands/*; do
   [ -f "$f" ] || continue
   n="$(basename "$f")"
   if [ "$n" = .gitkeep ]; then continue; fi
-  put "claude/commands/$n" "$HOME/.claude/commands/$n"
+  if [ -e "$TARGET_HOME/.claude/ai-global-disabled/commands/$n" ]; then
+    echo "DISABLED claude/commands/$n - preserving local choice"
+    put "claude/commands/$n" "$TARGET_HOME/.claude/ai-global-disabled/commands/$n"
+  else
+    put "claude/commands/$n" "$TARGET_HOME/.claude/commands/$n"
+  fi
   manage "claude/commands/$n"
 done
 for f in "$REPO"/claude/agents/*; do
   [ -f "$f" ] || continue
   n="$(basename "$f")"
   if [ "$n" = .gitkeep ]; then continue; fi
-  put "claude/agents/$n" "$HOME/.claude/agents/$n"
+  put "claude/agents/$n" "$TARGET_HOME/.claude/agents/$n"
   manage "claude/agents/$n"
 done
 
@@ -187,7 +199,7 @@ done
 while IFS= read -r rel; do
   [ -n "$rel" ] || continue
   case $'\n'"$MANAGED"$'\n' in *$'\n'"$rel"$'\n'*) continue ;; esac
-  dst="$HOME/.claude/${rel#claude/}"
+  dst="$TARGET_HOME/.claude/${rel#claude/}"
   if [ ! -e "$dst" ] && [ ! -L "$dst" ]; then continue; fi
   if [ "$MODE" = check ]; then
     echo "EXTRA   $dst - no longer in repo"; FAIL=1
@@ -252,16 +264,21 @@ echo "STATE   $STATE -> ${HEAD_COMMIT:0:9}"
 # silently overwrite something that was edited on this machine. post-merge
 # covers plain/ff pulls, post-rewrite covers `pull --rebase`.
 if [ -d "$REPO/.git/hooks" ]; then
+  if [ ! -e "$REPO/.git/hooks/post-merge" ] && [ ! -L "$REPO/.git/hooks/post-merge" ]; then
   cat > "$REPO/.git/hooks/post-merge" <<'HOOK'
 #!/bin/sh
 echo "ai-global: pull done -> run setup/install.sh check (or /ai-global in Claude Code)"
 HOOK
+  chmod +x "$REPO/.git/hooks/post-merge"
+  fi
+  if [ ! -e "$REPO/.git/hooks/post-rewrite" ] && [ ! -L "$REPO/.git/hooks/post-rewrite" ]; then
   cat > "$REPO/.git/hooks/post-rewrite" <<'HOOK'
 #!/bin/sh
 [ "$1" = rebase ] && echo "ai-global: pull --rebase done -> run setup/install.sh check (or /ai-global in Claude Code)"
 exit 0
 HOOK
-  chmod +x "$REPO/.git/hooks/post-merge" "$REPO/.git/hooks/post-rewrite"
+  chmod +x "$REPO/.git/hooks/post-rewrite"
+  fi
 fi
 
 if [ -d "$TRASH" ]; then

@@ -7,10 +7,9 @@
     -Scope session  Run from a Claude Code SessionEnd hook. Kills helper
                     processes (MCP servers, dev servers, emulators, headless
                     browsers) that descend from the ending session only.
-    -Scope global   Run from Task Scheduler. Kills helper processes whose
-                    parent is gone (true orphans), reports long-lived / large
-                    `claude` sessions via toast, and shuts WSL down when
-                    Docker is idle and vmmem has grown past a threshold.
+    -Scope global   Run manually. Reports orphan candidates, large sessions
+                    and VM usage. Lost ancestry cannot prove ownership, so
+                    global scope never stops processes or virtual machines.
 
   Safety rules:
     * A `claude` main process is NEVER killed. Remote Control is a long-lived
@@ -39,7 +38,7 @@ function Write-Log([string] $msg) {
   Add-Content -Path $log -Value $line -Encoding UTF8
 }
 
-# Helper process names that are safe to reclaim when orphaned.
+# Candidate helper names; session ancestry must also prove ownership.
 $helperNames = @('node', 'dart', 'emulator', 'qemu-system-x86_64', 'chrome', 'msedge', 'chromium', 'bun', 'python', 'pwsh', 'powershell', 'bash', 'sh')
 # Browsers count only when running headless (interactive windows are the user's).
 $headlessOnly = @('chrome', 'msedge', 'chromium')
@@ -107,6 +106,7 @@ if ($Scope -eq 'session') {
   foreach ($p in Get-Descendants $claude.Pid) {
     if ($p.Pid -eq $PID -or $mine -contains $p.Pid) { continue }
     if ($p.Name -eq 'claude') { continue }
+    if (Test-RemoteControlLineage $p) { continue }
     if (Test-IsHelper $p) { Stop-Tracked $p "descendant of ending session $($claude.Pid)" }
   }
   exit 0
@@ -118,7 +118,7 @@ foreach ($p in $all.Values) {
   if (-not (Test-IsHelper $p)) { continue }
   if (Get-LiveParent $p) { continue }             # parent alive -> not an orphan
   if (Test-RemoteControlLineage $p) { continue }
-  Stop-Tracked $p 'orphan (parent gone)'; $killed++
+  Write-Log "candidate $($p.Name) pid=$($p.Pid): ownership unknown (report only)"
 }
 
 # Report long-lived or large claude sessions; never kill them.
@@ -147,18 +147,20 @@ if ($warn.Count -gt 0) {
   } catch { Write-Log "toast failed: $($_.Exception.Message)" }
 }
 
-# WSL / Docker: shut the VM down only when nothing is using it and it has grown.
+# Global VM ownership cannot be attributed to an ending session.
 $vmmemSum = 0
 foreach ($p in $all.Values) { if ($p.Name -match '^vmmem') { $vmmemSum += $p.WS } }
 $vmmemMB = [math]::Round($vmmemSum / 1MB)
 if ($vmmemMB -ge $VmmemShutdownMB) {
-  $containers = @(& docker ps -q 2>$null).Count
-  $running = @(& wsl -l -v 2>$null | ForEach-Object { $_ -replace "`0", '' } | Where-Object { $_ -match 'Running' -and $_ -notmatch 'docker-desktop' })
-  if ($containers -eq 0 -and $running.Count -eq 0) {
-    if ($DryRun) { Write-Log "DRYRUN wsl --shutdown (vmmem ${vmmemMB}MB)" }
-    else { & wsl --shutdown; Write-Log "wsl --shutdown (vmmem ${vmmemMB}MB, no containers, no running distros)" }
-  } else {
-    Write-Log "vmmem ${vmmemMB}MB but in use (containers=$containers running=$($running -join ','))"
+  try {
+    $containers = @(& docker ps -q 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw 'docker query failed' }
+    $running = @(& wsl --list --running --quiet 2>$null)
+    if ($LASTEXITCODE -ne 0) { throw 'wsl query failed' }
+    $runningCount = @($running | ForEach-Object { ($_ -replace "`0", '').Trim() } | Where-Object { $_ }).Count
+    Write-Log "vmmem ${vmmemMB}MB containers=$($containers.Count) runningDistros=$runningCount (report only)"
+  } catch {
+    Write-Log "vmmem ${vmmemMB}MB usage unknown: VM query failed (report only)"
   }
 }
 
