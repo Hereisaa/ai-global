@@ -29,7 +29,7 @@
 
 ## 自動檢查涵蓋範圍
 
-`python3 setup/check_governance.py` 檢查結構與有限設定格式；`python3 -m unittest discover -s setup -p 'test_*.py'` 驗證檢查器的成功、拒絕及不洩密行為。它們不執行上表的真實模型行為，也不驗證所有平台的指令層級。
+`python3 setup/govcheck.py` 檢查結構與有限設定格式；`python3 -m unittest discover -s setup -p 'test_*.py'` 驗證檢查器的成功、拒絕及不洩密行為。它們不執行上表的真實模型行為，也不驗證所有平台的指令層級。
 
 ## 變更紀錄
 - 2026-09-07 建立固定情境與分層驗法，區分讀回、單元測試與模型行為實測。

@@ -9,8 +9,9 @@
 
 ## 腳本（任一 OS 同一指令，Python 3.11+）
 - 部署／檢查：`python <repo>/setup/deploy.py [install|check]`
-- 一鍵對齊：`python <repo>/setup/align.py [--plan|--yes] [--no-pull] [--resolve KEY=ACTION] [--no-venv]`（Python <3.11 直接停下提示；終端缺 prompt_toolkit 會問要不要建 `.venv`，非 TTY 不問）
+- 一鍵對齊：`python <repo>/setup/align.py [--plan|--yes] [--no-pull] [--only ID] [--resolve KEY=ACTION] [--no-venv]`；`--plan` 就是 check，`--only` 只補裝一項（Python <3.11 直接停下提示；終端缺 prompt_toolkit 會問要不要建 `.venv`，非 TTY 不問）
 - 能力清單與開關：`python <repo>/setup/capabilities.py list|enable|disable|manage`
+- 治理檢查：`python <repo>/setup/govcheck.py [--local]`
 
 ## check 狀態碼
 | 狀態 | 意思 | 已授權部署時的處置 |
@@ -27,10 +28,10 @@
 回報 install 的 `WARN`／`DROP`／`NOTE` 及備份位置；相同狀態與內容已檢查過，不重跑。部署前後的 check 分別保護輸入與驗證結果，保留兩者。
 
 ## 能力對帳
-執行 `python <repo>/setup/capabilities.py list`，區分專案預設與本機既有，列工具、類型、ID、安裝及啟用狀態。未列管能力預設保留，不逐項追問是否納管；缺項不自動安裝，偏好不因 sync 重設。只有使用者要求開關才接 [capabilities.md](capabilities.md)。
+執行 `python <repo>/setup/capabilities.py list`，區分專案預設與本機既有，列工具、類型、ID、安裝及啟用狀態。未列管能力預設保留，不逐項追問是否納管；缺項不自動安裝，偏好不因 align 重設。只有使用者要求開關才接 [capabilities.md](capabilities.md)。
 
 ## settings 共用項對帳
-先依 `check_governance.py --local` 輸出確認已覆蓋的欄位，不重做同一比對。其餘從 `<repo>/manifest/settings.json` 與本機設定做唯讀深度比對：Claude 的 `permissions`、`statusLine`、`extraKnownMarketplaces`，以及 manifest 宣告的 Codex 共用 key。checker 的白名單檢查未覆蓋這些欄位時，不能當成已對帳。`enabledPlugins` 已移出此共用基準，不整塊比對或覆寫。能力啟用狀態以 capabilities 清單為準，本機選擇不是必須修復的漂移。只顯示欄位名稱與影響，不輸出原始設定或秘密。修改依明確範圍備份後合併，保留其他 key；對帳本身不授權修改。
+先依 `govcheck.py --local` 輸出確認已覆蓋的欄位，不重做同一比對。其餘從 `<repo>/manifest/settings.json` 與本機設定做唯讀深度比對：Claude 的 `permissions`、`statusLine`、`extraKnownMarketplaces`，以及 manifest 宣告的 Codex 共用 key。checker 的白名單檢查未覆蓋這些欄位時，不能當成已對帳。`enabledPlugins` 已移出此共用基準，不整塊比對或覆寫。能力啟用狀態以 capabilities 清單為準，本機選擇不是必須修復的漂移。只顯示欄位名稱與影響，不輸出原始設定或秘密。修改依明確範圍備份後合併，保留其他 key；對帳本身不授權修改。
 
 ## 回報
 結論先行，列具體變更、驗證、限制與分支。未安裝或本機停用不代表部署失敗。push 須對具體遠端／分支的明確授權。

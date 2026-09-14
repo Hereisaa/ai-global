@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 
-SPEC = importlib.util.spec_from_file_location("check_governance", Path(__file__).with_name("check_governance.py"))
+SPEC = importlib.util.spec_from_file_location("govcheck", Path(__file__).with_name("govcheck.py"))
 checker = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(checker)
 

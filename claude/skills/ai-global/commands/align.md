@@ -4,7 +4,7 @@
 
 同一支腳本兩個入口：使用者在真正的終端跑 `python <repo>/setup/align.py` 會開互動選單（缺 prompt_toolkit 時先問一句、自動建專案 `.venv` 並重跑）；在 Claude Code 裡沒有 TTY，由本流程改在對話中呈現衝突並收集決定，不會觸發 `.venv` 建置。
 
-1. 先跑 `python <repo>/setup/align.py --plan`（唯讀）：看 pull 是否可行、部署差異、要補裝的項目、衝突清單。FAIL 或 `check_governance.py` 有 FAIL 就停下交付原因。
+1. 先跑 `python <repo>/setup/align.py --plan`（唯讀）：看 pull 是否可行、部署差異、要補裝的項目、衝突清單。FAIL 或 `govcheck.py` 有 FAIL 就停下交付原因。
 2. 使用者已授權對齊即執行 `python <repo>/setup/align.py --yes`：pull（工作樹髒則略過並回報）、部署、補裝缺項。回傳碼 2 代表有衝突待決；1 代表有失敗項，先報。
 3. 衝突逐項列給使用者：類型、標題、說明、可選處置與預設值（腳本輸出的 `KEY=…` 行）。類型與預設：
    - `edited` 部署檔在 repo 外被改過 → 以 repo 覆蓋／回寫 repo／保留兩邊（預設覆蓋；先看差異再問）
@@ -16,5 +16,7 @@
    使用者沒回應的項目一律當「預設值」，但 `extra`、`switch`、`hook` 的預設都是不動，所以不會有隱性變更。
 4. 收齊決定後執行 `python <repo>/setup/align.py --no-pull --yes --resolve KEY=ACTION ...`（可多個 `--resolve`）。
 5. 跑 `python <repo>/setup/capabilities.py list` 對帳，並跑 `python <repo>/setup/deploy.py check`。回報：pull 結果、部署變更、補裝與失敗項、每項衝突的處置、trash 位置與分支。需要新工作階段才載入的能力明說。
+
+**只補裝一項（`align --only <id>`）**：在 `<repo>/manifest/skills.json` 以 `id` 確認唯一項目（使用者給名稱有歧義才詢問），執行 `python <repo>/setup/align.py --no-pull --yes --only <id>`（可多個 `--only`），不處理能力衝突。腳本依 `source` 型別處理：`repo:` 交給部署；`marketplace …` 用該工具的 plugin CLI（需要時先 `marketplace add`）；`github:owner/repo`＋`path` 淺 clone 後複製，並在目錄內寫 `.ai-global.json` 記來源與 commit。裝完 `capabilities.py list` 核對。
 
 `requires`（例如 `typescript-language-server`）不在 PATH 時腳本只 WARN 並附 `requires_hint`；安裝前置需求屬第三方安裝，依 common 的原則彙整一次裁決，不自動跑。

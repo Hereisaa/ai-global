@@ -1,9 +1,8 @@
 # check（唯讀）
 
-按需讀 [common.md](common.md)。不 pull、fetch、install 或修改設定。
+按需讀 [common.md](common.md)。不 pull、不 install、不改設定。check 就是 `align --plan`。
 
-1. 找 `<repo>`，列目前 branch、依現有本機 refs 判斷的 ahead/behind 及未提交變更；明示遠端資訊可能未更新。
-2. 跑 `python <repo>/setup/deploy.py check`，回報非 OK 狀態。
-3. 跑 `python <repo>/setup/check_governance.py --local` 一次，列 FAIL 與有行動意義的 WARN。
-4. 執行 common 的能力對帳與 settings 共用項對帳；僅補足 checker 尚未涵蓋的欄位，列出來源、狀態與設定差異，不寫檔。
-5. 回報差異與對應操作建議，不自行套用。
+1. 找 `<repo>`，列目前 branch 與未提交變更；明示遠端資訊可能未更新。
+2. 跑 `python <repo>/setup/align.py --plan`：回報 PLAN（部署差異）、要補裝的項目、衝突清單三張表。
+3. 使用者另要治理或共用設定對帳才跑 `govcheck.py --local` 與 common 的 settings 對帳；不主動連跑。
+4. 回報差異與對應操作建議（多半是「跑 align」），不自行套用。

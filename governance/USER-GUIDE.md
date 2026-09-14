@@ -28,7 +28,7 @@
 在 ai-global 倉庫執行：
 
 ```bash
-python3 setup/check_governance.py --local
+python3 setup/govcheck.py --local
 ```
 
 `--local` 已包含倉庫靜態檢查；只需離線檢查時省略參數，不重跑兩者。檢查範圍以腳本輸出為準，通過不代表模型遵循、hooks 被觸發或安全邊界已完整驗證。部署與同步入口見 [倉庫 README](../README.md)。

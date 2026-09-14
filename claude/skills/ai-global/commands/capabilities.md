@@ -15,7 +15,7 @@ python setup/capabilities.py enable --tool claude --kind skill --id <ID>
 3. 使用 CLI 的原生設定更新或可逆停用機制，保留其餘本機設定。切換不等於卸載，不下載第三方，也不改 manifest。
 4. 再 list 核對該項狀態並回報；若工具需要新工作階段才載入，明示目前只驗設定。CLI 不支援的項目回報限制，不自製另一套修改方法。
 
-本機偏好保留在該機器，sync 不重設。更改專案預設屬另一次 manifest 變更；只有使用者要求才處理，不把本機選擇自動納管或寫入記憶。
+本機偏好保留在該機器，align 不重設。更改專案預設屬另一次 manifest 變更；只有使用者要求才處理，不把本機選擇自動納管或寫入記憶。
 
 清單僅涵蓋使用者全域層，不含 project/system 層（專案 `.claude/settings.json` 的 `enabledPlugins` 可覆蓋使用者層，進入專案時另看）；插件內 skills 隨插件開關。Claude plugin 的安裝狀態以 `claude plugin list` 交叉驗證登錄檔（`installed_plugins.json` 未文件化）：已停用的 plugin 不會被 CLI 列出，要卸載須先 enable 再 uninstall，或直接改 `enabledPlugins` 並把快取移到 trash。Codex 插件缺少可靠安裝登錄時顯示安裝未知，不把已設定 enabled 當成已安裝。Claude 插件用原生 enabledPlugins；Codex 用 config.toml 的 plugins 與 skills.config（Python 3.11+）；Claude 獨立能力停用至 `~/.claude/ai-global-disabled/{skills,commands}/<name>`。設定備份在 `~/.ai-trash/ai-global-settings-<唯一值>/`，不輸出內容。
 

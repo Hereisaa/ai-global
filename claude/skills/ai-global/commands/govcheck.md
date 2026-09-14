@@ -3,7 +3,7 @@
 在已確認的 `<repo>` 執行以下之一：
 
 ```bash
-python setup/check_governance.py --local
+python setup/govcheck.py --local
 ```
 
 `--local` 包含 repo 靜態檢查；只需離線檢查時省略此參數，不連跑兩者。Codex TOML 本機對帳需 Python 3.11+。

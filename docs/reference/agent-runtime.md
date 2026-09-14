@@ -48,10 +48,12 @@ Astra 非同步安全監控可能在觸發行為之後才暫停，官方明言�
 
 本倉庫的部署入口見 [README](../../README.md)。以下檔案已確認存在；本次沒有執行清理、驗證排程掛載或跨平台效果：
 
-| 平台 | 清理腳本 | 排程安裝腳本 |
-|---|---|---|
-| macOS | [cleanup-orphans.sh](../../claude/hooks/cleanup-orphans.sh) | [install-cleanup-agent.sh](../../setup/install-cleanup-agent.sh) |
-| Windows | [cleanup-orphans.ps1](../../claude/hooks/cleanup-orphans.ps1) | [install-cleanup-task.ps1](../../setup/install-cleanup-task.ps1) |
+| 平台 | 清理腳本 |
+|---|---|
+| macOS | [cleanup-orphans.sh](../../claude/hooks/cleanup-orphans.sh) |
+| Windows | [cleanup-orphans.ps1](../../claude/hooks/cleanup-orphans.ps1) |
+
+排程安裝器（launchd／schtasks）已於 2026-09-15 退役：macOS 既有的 launchd agent 保留運作，重灌時手動掛 `--scope global`；Windows 為手動執行。
 
 腳本提供 `--dry-run`／`-DryRun` 與 session／global 範圍選項。需使用時先讀當前程式、確認程序所有權與目標，再檢視預演及紀錄；預演也可能寫日誌。不要沿用舊 README 的記憶體門檻、Colima／WSL 行為或「停了就不會重啟」結論作為當前保證。此頁不授權終止程序或啟用排程。
 

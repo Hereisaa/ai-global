@@ -5,7 +5,7 @@
 - 實質規則的單一事實來源（SSOT）：`~/.ai-global/governance/`（與 Claude Code 共用）。本檔只放紅線與路由；一條政策只在一處完整定義，本檔引用它；兩邊若不一致，以 governance 目錄為準。
 - 版本正本：ai-global git repo。本機 clone 的位置寫在 `~/.ai-global/.deploy-state.json` 的 `source_repo`。
 - **不要直接編輯 `~/.codex/AGENTS.md`、`~/.claude/CLAUDE.md` 或 `~/.ai-global/` 底下任何檔案。** 正確流程：改 clone 內對應檔 → 跑部署腳本 → 驗證 → commit；push 依授權（未 push 另一台拿不到）。直接改部署端會在下次 check 被標成 `EDITED`，且下次部署時被覆蓋（舊檔進 `~/.ai-trash/`）。
-- 本檔與 Claude 側的 `~/.claude/CLAUDE.md` 是同一套規則的兩個 router，**內容應保持對等，節次順序也刻意對齊**（`setup/check_governance.py` 會擋節次不對齊與照抄前綴）。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`codex/` vs `claude/`）、`/ai-global` 只有 Claude Code 跑得動、子代理機制本環境未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
+- 本檔與 Claude 側的 `~/.claude/CLAUDE.md` 是同一套規則的兩個 router，**內容應保持對等，節次順序也刻意對齊**（`setup/govcheck.py` 會擋節次不對齊與照抄前綴）。只在「工具能力不同」處分歧，且分歧要寫明理由——例如分支前綴跟著工具走（`codex/` vs `claude/`）、`/ai-global` 只有 Claude Code 跑得動、子代理機制本環境未必有。改動任一邊時順手檢查另一邊要不要跟；照抄對面的工具專屬字眼（前綴、指令名）是最常見的錯。
 
 ## 環境
 以實際偵測到的 OS 為準，不要假設。
@@ -29,8 +29,8 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 一鍵對齊（pull＋部署＋補裝 manifest 缺項＋衝突選單）：`python <repo>/setup/align.py`（需 Python 3.11+；終端缺 prompt_toolkit 會問一句就自動建 `.venv` 重跑）；只部署 repo 自己的檔：`python <repo>/setup/deploy.py`；任一 OS 同一指令。
 - 只想看有沒有漂移（不動檔案）：`python <repo>/setup/deploy.py check` 或 `python <repo>/setup/align.py --plan`。
 - `git pull` 之後務必跑一次 check，決定要不要重新部署——pull 不會自動改全域。
-- `/ai-global` skill（`check`／`sync`／`deploy`／`govcheck`／`capabilities`／`install <name>`／`align`／`evolve`）是 Claude Code 的，**Codex 這側跑不了**：請使用者去 Claude Code 執行，或照 `<repo>/README.md` 的「給 AI agent 的指引」手動走。
-- 改了制度檔或 router → 在 `<repo>` 跑 `python setup/check_governance.py`（節次對齊、前綴、路由、連結）。
+- `/ai-global` skill（`check`／`align`／`deploy`／`govcheck`／`capabilities`／`evolve`，每個名字對應同名腳本或 flag）是 Claude Code 的，**Codex 這側跑不了**：請使用者去 Claude Code 執行，或照 `<repo>/README.md` 的「給 AI agent 的指引」手動走。
+- 改了制度檔或 router → 在 `<repo>` 跑 `python setup/govcheck.py`（節次對齊、前綴、路由、連結）。
 
 ## 多 session 並行（同一專案常有 3～5 個 session 在跑）
 - 開 worktree／分支一律用 **`codex/<主題>`**（Claude Code 側用 `claude/<主題>`；前綴跟著工具走，這樣兩邊開的分支一眼分得出來，別照抄對面的前綴）。接受工具自動生成的分支名，不自行 rename；只有使用者要求整理或名稱妨礙辨識時才提出。
@@ -88,3 +88,4 @@ clone 路徑見 `~/.ai-global/.deploy-state.json`；以下 `<repo>` 代表它。
 - 2026-09-14 縮小讀取範圍、對齊 80 工程規則、移除低風險重問與改名要求，補能力開關入口及 Windows 手動清理決策（Codex，使用者授權）。
 - 2026-09-14 部署腳本改為單一 Python（`setup/deploy.py`），新增 `align` 一鍵對齊與 `evolve`（Claude Code 的 skill；Codex 直接跑同一套 `setup/*.py`）；install.sh／ps1 退役（Opus 5，使用者授權）
 - 2026-09-14 `align` 加 Python 版本守門與 `.venv` 自動建置（缺 prompt_toolkit 問一句即建、重跑）；manifest 的 Codex `claude-plugins-official` 條目改為自動註冊 marketplace（Opus 5，使用者授權）
+- 2026-09-15 skill 與腳本命名收斂：`check_governance.py` 改名 `govcheck.py`；`/ai-global` 收成 `check`（＝`align --plan`）／`align`（吸收 `sync`，`--only` 取代 `install`）／`deploy`／`govcheck`／`capabilities`／`evolve`；`install-cleanup-*` 退役（Fable 5.1，使用者授權）

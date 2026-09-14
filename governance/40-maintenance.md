@@ -24,7 +24,7 @@
 在 ai-global 根目錄執行：
 
 ```bash
-python3 setup/check_governance.py --local
+python3 setup/govcheck.py --local
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 ```
 
