@@ -46,7 +46,7 @@ SETTINGS_KEYS = {
     "claude_settings": ("model", "effortLevel"),
     "codex_config": ("model", "model_reasoning_effort", "personality"),
 }
-ROUTER_LINE_BUDGET = 120
+ROUTER_LINE_BUDGET = 60  # governance/40-maintenance.md 的 router 預算
 GOVERNANCE_LINE_BUDGET = 300
 
 

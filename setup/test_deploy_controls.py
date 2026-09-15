@@ -167,11 +167,14 @@ class DeployControlTests(unittest.TestCase):
         self.assertFalse((home / ".claude/skills/ai-global/.DS_Store").exists())
         self.assertNotIn("governance/.DS_Store", json.loads(result["state_path"].read_text(encoding="utf-8"))["files"])
         (home / ".ai-global/governance/.DS_Store").write_bytes(b"finder again")
+        (home / ".ai-global/.DS_Store").write_bytes(b"finder at the top level")
         (home / ".claude/hooks").mkdir(parents=True, exist_ok=True)
         (home / ".claude/hooks/Thumbs.db").write_bytes(b"explorer")
         check = deploy.run(repo, home, "check", echo=lambda _: None)
         self.assertTrue(check["ok"], check["results"])
         self.assertTrue((home / ".ai-global/governance/.DS_Store").exists())
+        deploy.run(repo, home, "install", echo=lambda _: None)
+        self.assertTrue((home / ".ai-global/.DS_Store").exists(), "install must not park desktop metadata either")
 
 
 if __name__ == "__main__":

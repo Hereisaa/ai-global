@@ -39,8 +39,9 @@ class DeployError(Exception):
 FAIL_STATUSES = frozenset(("MISSING", "STALE", "BEHIND", "EDITED", "EXTRA"))
 HOOK_MSG = "ai-global: pull done -> run python setup/deploy.py check (or /ai-global in Claude Code)"
 GLOBAL_KEEP = ("governance", ".deploy-state.json")
-# Desktop metadata the OS drops into any folder it displays. Never deployed and
-# never reported as EXTRA: Finder would recreate it under ~/.ai-global anyway.
+# Desktop metadata the OS drops into any folder it displays. Never deployed,
+# never reported as EXTRA and never cleaned up either: Finder would recreate it
+# under ~/.ai-global on the next visit, so it is simply invisible to deploy.
 IGNORED_NAMES = frozenset((".DS_Store", "Thumbs.db", "desktop.ini"))
 
 
@@ -246,7 +247,7 @@ class Deployer:
         # level that this version does not deploy is a leftover from an older layout.
         if self.global_dir.is_dir():
             for entry in sorted(self.global_dir.iterdir(), key=lambda p: p.name):
-                if entry.name not in GLOBAL_KEEP:
+                if entry.name not in GLOBAL_KEEP and entry.name not in IGNORED_NAMES:
                     self.extra(entry, "no longer deployed here")
 
         self.put_dir("claude/hooks", home / ".claude/hooks")

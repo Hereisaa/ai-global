@@ -113,9 +113,17 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
 
         blocked = ["rm foo", "cd x && rm -rf y", "ls | xargs rm", "sudo rm -rf /tmp/x",
                    "find . -name '*.log' -delete", "rmdir empty", "$(rm x)",
-                   "pwsh -c \"Remove-Item x\"", "git clean -fd"]
+                   "pwsh -c \"Remove-Item x\"", "git clean -fd",
+                   # reviewer bypasses (2026-09-15)
+                   "ls | while read f; do rm \"$f\"; done", "if true; then rm x; fi", "for f in *; do unlink $f; done",
+                   "/bin/rm x", "\\rm -rf /tmp/x", "env FOO=1 rm x", "bash -c \"rm x\"",
+                   "python3 -c \"import shutil; shutil.rmtree('x')\"", "python3 -c \"import os; os.remove('x')\"",
+                   "node -e \"require('fs').unlinkSync('x')\"", "rsync -a --delete a/ b/", "npx rimraf dist"]
         allowed = ["mv a ~/.ai-trash/cleanup-1/", "npm rm pkg", "git rm --cached x",
-                   "echo confirm; grep -rn model .", "python3 setup/deploy.py check", "# rm in a comment"]
+                   "echo confirm; grep -rn model .", "python3 setup/deploy.py check", "# rm in a comment",
+                   # reviewer false positives (2026-09-15): auditing the rules must stay possible
+                   "grep -rn 'rm -rf' docs/", "rg 'Remove-Item' claude/", "echo 'del' > f",
+                   "echo \"rm is banned\"", "git clean -n", "cat README.md | grep unlink"]
         for command in blocked:
             code, err = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
             self.assertEqual(code, 2, command)
@@ -160,6 +168,22 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("不同步（1 項", result.stdout)
         self.assertIn("BEHIND", result.stdout)
+
+        (repo / "setup/deploy.py").write_text("import sys\nprint('boom')\nsys.exit(3)\n", encoding="utf-8")
+        result = hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("部署檢查本身失敗", result.stdout)
+        self.assertIn("boom", result.stdout)
+        self.assertNotIn("0 項", result.stdout)
+
+    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
+    def test_guard_delete_without_python_fails_open_but_says_so(self):
+        payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm x"}})
+        env = dict(os.environ, PATH="/nonexistent")
+        result = subprocess.run([BASH, str(HOOKS / "guard-delete.sh")], input=payload, env=env,
+                                capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("hook 失效", result.stderr)
 
 
 if __name__ == "__main__":

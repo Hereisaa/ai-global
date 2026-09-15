@@ -39,6 +39,12 @@ if [ "$rc" -eq 0 ]; then
 fi
 drift=$(printf '%s\n' "$output" | grep -E '^(MISSING|STALE|BEHIND|EDITED|EXTRA) ' | sed 's/ - .*//')
 count=$(printf '%s\n' "$drift" | grep -c . || true)
+if [ "$count" -eq 0 ]; then
+  # check failed without reporting drift: deploy.py itself broke. Show why.
+  echo "ai-global: 部署檢查本身失敗（exit ${rc}，clone $branch@${head}），無法判斷是否同步："
+  printf '%s\n' "$output" | tail -n 5
+  exit 0
+fi
 echo "ai-global: 全域設定與 clone 不同步（$count 項，clone $branch@${head}）。先在 Claude Code 跑 /ai-global check 看細節，再決定 align／deploy；不要直接改部署端。"
 printf '%s\n' "$drift" | head -n 8
 [ "$count" -gt 8 ] && echo "…（其餘 $((count - 8)) 項略）"

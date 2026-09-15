@@ -38,7 +38,7 @@
 - 以 80 為準：只檢查相關既有能力，移除無需求的舊路徑；遷移、相容與備援依實際需求及風險驗證。回覆先說行為變更與原因，附驗證、限制及分支；已有可讀差異時給連結與必要片段即可。
 
 ## 安全紅線（違反即事故，無例外時不得便宜行事）
-1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（`os.remove`、`fs.unlink`、PowerShell `Remove-Item` 等）。刪除一律 `mv`／`Move-Item` 到 `~/.ai-trash/` 並加時間戳、避免覆蓋。PreToolUse hook（`guard-delete.sh`）會擋整條指令中的刪除動詞，被擋就照 50 改用 mv，不要繞。完整流程與限定例外 → `~/.ai-global/governance/50-safety.md`。
+1. **禁止 `rm` / `rm -rf` / `rmdir` 及程式化刪除**（`os.remove`、`fs.unlink`、PowerShell `Remove-Item` 等）。刪除一律 `mv`／`Move-Item` 到 `~/.ai-trash/` 並加時間戳、避免覆蓋。若本機 settings.json 掛了 PreToolUse hook `guard-delete.sh`，常見刪除寫法會被擋下；它只是薄防護（掛載與否、Windows 端、程式化刪除都不保證），被擋就照 50 改用 mv，不要繞，沒被擋也不代表可以刪。完整流程與限定例外 → `~/.ai-global/governance/50-safety.md`。
 2. 不可逆或對外的動作（force push、刪遠端分支、一般 push、對外發布、寄送訊息）須有使用者對這次具體目標與範圍的明確授權；已授權的同一操作不重問；修改本機檔案不自動授權 push。
 3. 真實 `.env`、金鑰、憑證：不貼進回覆、不 commit、不傳給外部服務、不寫進 log。無秘密的 `.env.example` 依 50 檢查後才可追蹤。
 

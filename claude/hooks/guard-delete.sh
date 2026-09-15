@@ -13,7 +13,11 @@ py=""
 for candidate in python3 python py; do
   if command -v "$candidate" >/dev/null 2>&1; then py="$candidate"; break; fi
 done
-[ -n "$py" ] || exit 0
+if [ -z "$py" ]; then
+  # Fail open, but say so: the model must not assume this guard is active.
+  echo "ai-global guard-delete: 找不到 python，本次未檢查刪除指令（hook 失效，紅線仍然有效）。" >&2
+  exit 0
+fi
 
 # The heredoc below takes over stdin, so the hook payload is captured first
 # and handed to the script as its only argument.
@@ -34,15 +38,25 @@ command = event.get("tool_input", {}).get("command", "")
 if not isinstance(command, str):
     sys.exit(0)
 
-# A delete verb counts only at the start of a (sub)command, or fed through
-# sudo/xargs/exec, so "npm rm pkg" and "git rm --cached" stay allowed.
-LEAD = r"(?:^|[;&|(`{\"']|\$\(|\bsudo\s+(?:-\S+\s+)*|\bxargs\s+(?:-\S+\s+)*|\bexec\s+|\bcommand\s+|\bnohup\s+)\s*"
+# A delete verb counts only at the start of a (sub)command - after a separator,
+# a keyword such as do/then/else, or inside sudo/xargs/exec/env - so "npm rm pkg"
+# and "git rm --cached" stay allowed. A quote counts as a start only right after
+# an interpreter flag (-c, -e, -Command), so grep 'rm -rf' is not a hit.
+LEAD = (r"(?:^|[;&|(`{]|\$\(|\bsudo\s+(?:-\S+\s+)*|\bxargs\s+(?:-\S+\s+)*|\bexec\s+|\bcommand\s+"
+        r"|\bnohup\s+|\benv\s+(?:\w+=\S*\s+)*|\b(?:do|then|else)\s+|-(?:c|e|Command)\s*[\"'])\s*")
+VERB = r"(?:\\|/\S*/)?"   # \rm and /bin/rm are still rm
 PATTERNS = [
-    re.compile(LEAD + r"(?:rm|rmdir|unlink|shred)\b"),
+    re.compile(LEAD + VERB + r"(?:rm|rmdir|unlink|shred)\b"),
     re.compile(r"\bfind\b[^;&|]*\s-delete\b"),
     re.compile(LEAD + r"(?:Remove-Item|ri|rd|del|erase)\b(?![-\w.])", re.I),
     re.compile(LEAD + r"git\s+clean\b(?=[^;&|]*\s-[a-zA-Z]*f)"),
+    re.compile(LEAD + r"(?:npx\s+)?(?:rimraf|trash-put)\b"),
+    re.compile(r"\brsync\b[^;&|]*\s--delete\b"),
+    # Programmatic deletes run through an interpreter one-liner.
+    re.compile(r"\b(?:shutil\.rmtree|os\.(?:remove|unlink|rmdir|removedirs)|\.unlink|unlinkSync|rmSync"
+               r"|fs\.(?:unlink|rm|rmdir))\s*\("),
 ]
+
 for line in command.splitlines():
     stripped = line.strip()
     if stripped.startswith("#"):
