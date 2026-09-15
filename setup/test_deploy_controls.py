@@ -158,6 +158,21 @@ class DeployControlTests(unittest.TestCase):
         self.assertIn("STATE   never deployed on this machine", completed.stdout)
         self.assertIn("MISSING", completed.stdout)
 
+    def test_desktop_metadata_is_never_deployed_nor_reported(self):
+        repo, home = fixture()
+        (repo / "governance/.DS_Store").write_bytes(b"finder")
+        (repo / "claude/skills/ai-global/.DS_Store").write_bytes(b"finder")
+        result = deploy.run(repo, home, "install", echo=lambda _: None)
+        self.assertFalse((home / ".ai-global/governance/.DS_Store").exists())
+        self.assertFalse((home / ".claude/skills/ai-global/.DS_Store").exists())
+        self.assertNotIn("governance/.DS_Store", json.loads(result["state_path"].read_text(encoding="utf-8"))["files"])
+        (home / ".ai-global/governance/.DS_Store").write_bytes(b"finder again")
+        (home / ".claude/hooks").mkdir(parents=True, exist_ok=True)
+        (home / ".claude/hooks/Thumbs.db").write_bytes(b"explorer")
+        check = deploy.run(repo, home, "check", echo=lambda _: None)
+        self.assertTrue(check["ok"], check["results"])
+        self.assertTrue((home / ".ai-global/governance/.DS_Store").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

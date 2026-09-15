@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -101,6 +102,64 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
             result = self.powershell_case("global", failure)
             self.assertEqual(result["stops"], [])
             self.assertIn("usage unknown", result["log"])
+
+    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
+    def test_guard_delete_blocks_delete_verbs_anywhere_and_allows_the_rest(self):
+        script = HOOKS / "guard-delete.sh"
+
+        def run(payload):
+            result = subprocess.run([BASH, str(script)], input=payload, text=True, capture_output=True)
+            return result.returncode, result.stderr
+
+        blocked = ["rm foo", "cd x && rm -rf y", "ls | xargs rm", "sudo rm -rf /tmp/x",
+                   "find . -name '*.log' -delete", "rmdir empty", "$(rm x)",
+                   "pwsh -c \"Remove-Item x\"", "git clean -fd"]
+        allowed = ["mv a ~/.ai-trash/cleanup-1/", "npm rm pkg", "git rm --cached x",
+                   "echo confirm; grep -rn model .", "python3 setup/deploy.py check", "# rm in a comment"]
+        for command in blocked:
+            code, err = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
+            self.assertEqual(code, 2, command)
+            self.assertIn("50-safety", err)
+        for command in allowed:
+            code, _ = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
+            self.assertEqual(code, 0, command)
+        self.assertEqual(run(json.dumps({"tool_name": "Read", "tool_input": {"file_path": "rm"}}))[0], 0)
+        self.assertEqual(run("not json")[0], 0)
+
+    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
+    def test_session_check_reports_missing_state_and_sync_status(self):
+        home = Path(tempfile.mkdtemp(prefix="home-", dir=self.fixtures))
+        env = dict(os.environ, HOME=str(home))
+
+        def hook():
+            return subprocess.run([BASH, str(HOOKS / "ai-global-check.sh")], env=env, capture_output=True,
+                                  text=True, encoding="utf-8", errors="replace")
+
+        result = hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("尚未部署", result.stdout)
+
+        repo = Path(tempfile.mkdtemp(prefix="repo-", dir=self.fixtures))
+        for name in ("claude/CLAUDE.md", "codex/AGENTS.md", "governance/20-judgment.md"):
+            (repo / name).parent.mkdir(parents=True, exist_ok=True)
+            (repo / name).write_text("# rules\n", encoding="utf-8")
+        shutil.copytree(ROOT / "setup", repo / "setup", ignore=shutil.ignore_patterns("__pycache__", "test_*"))
+        subprocess.run(["git", "init", "-q", str(repo)], capture_output=True, check=True)
+        subprocess.run(["git", "-C", str(repo), "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                        "commit", "-q", "--allow-empty", "-m", "fixture"], capture_output=True, check=True)
+        deploy = subprocess.run([sys.executable, str(repo / "setup/deploy.py"), "--home", str(home)],
+                                capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(deploy.returncode, 0, deploy.stdout + deploy.stderr)
+        result = hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("同步", result.stdout)
+        self.assertNotIn("不同步", result.stdout)
+
+        (repo / "governance/20-judgment.md").write_text("# newer\n", encoding="utf-8")
+        result = hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("不同步（1 項", result.stdout)
+        self.assertIn("BEHIND", result.stdout)
 
 
 if __name__ == "__main__":

@@ -40,7 +40,7 @@ python3 setup/govcheck.py --local
 | 已驗證 | 本次實跑的指令、結果、檔案與日期 | 不能沿用歷史快照冒充現況 |
 | 未驗證 | 尚未檢查的平台、runtime、hook 觸發、CI 或遠端保護 | 不以檔案存在或設定文字取代實測 |
 
-本次文件更新不代表已修改本機 settings、啟用 Stop hook、更新模型、執行遠端 CI 或同步另一台機器；這些都須各自取得證據。舊狀態表已保留於歷史備份，不作當前承諾。
+本次文件更新不代表已修改本機 settings、掛上 hooks（guard-delete、ai-global-check、cleanup-orphans）、更新模型、執行遠端 CI 或同步另一台機器；這些都須各自取得證據。舊狀態表已保留於歷史備份，不作當前承諾。
 
 ## 值得重新檢查的訊號
 

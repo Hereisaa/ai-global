@@ -51,6 +51,42 @@
           "repo": "greensock/gsap-skills"
         }
       }
+    },
+    "hooks": {
+      "_note": "建議接法；govcheck/align 不比對此區塊，只回報指向不存在腳本的 hook。啟用與否各機器自行決定。",
+      "PreToolUse": [
+        {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "bash ~/.claude/hooks/guard-delete.sh"
+            }
+          ]
+        }
+      ],
+      "SessionStart": [
+        {
+          "matcher": "*",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "bash ~/.claude/hooks/ai-global-check.sh",
+              "timeout": 20
+            }
+          ]
+        }
+      ],
+      "SessionEnd": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "bash ~/.claude/hooks/cleanup-orphans.sh --scope session"
+            }
+          ]
+        }
+      ]
     }
   },
   "codex_config": {

@@ -39,6 +39,9 @@ class DeployError(Exception):
 FAIL_STATUSES = frozenset(("MISSING", "STALE", "BEHIND", "EDITED", "EXTRA"))
 HOOK_MSG = "ai-global: pull done -> run python setup/deploy.py check (or /ai-global in Claude Code)"
 GLOBAL_KEEP = ("governance", ".deploy-state.json")
+# Desktop metadata the OS drops into any folder it displays. Never deployed and
+# never reported as EXTRA: Finder would recreate it under ~/.ai-global anyway.
+IGNORED_NAMES = frozenset((".DS_Store", "Thumbs.db", "desktop.ini"))
 
 
 def blob_hash(path):
@@ -219,6 +222,8 @@ class Deployer:
         for base, dirs, names in os.walk(root):
             dirs.sort()
             for name in sorted(names):
+                if name in IGNORED_NAMES:
+                    continue
                 found.append(os.path.relpath(os.path.join(base, name), root))
         return found
 

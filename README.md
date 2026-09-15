@@ -194,11 +194,12 @@ python -m unittest discover -s setup -p 'test_*.py'
 ```
 claude/CLAUDE.md             Claude Code router      → ~/.claude/CLAUDE.md
 claude/statusline.sh         狀態列                   → ~/.claude/statusline.sh
-claude/hooks/                cleanup-orphans.{sh,ps1} → ~/.claude/hooks/
+claude/hooks/                guard-delete.sh、ai-global-check.sh、cleanup-orphans.{sh,ps1} → ~/.claude/hooks/
 claude/skills/ai-global/     /ai-global skill         → ~/.claude/skills/ai-global/
 codex/AGENTS.md              Codex router             → ~/.codex/AGENTS.md
 governance/                  憲法（README.md 是索引，USER-GUIDE.md 給使用者）→ ~/.ai-global/governance/
 manifest/                    skills.json（第三方清單）、settings.json（共用設定）、sources.json（evolve 核對來源）
+docs/CHANGELOG.md            兩個 router 的變更紀錄（不放在 router 本體）
 docs/reference/              agent-runtime.md（工具機制）、governance-evaluation.md（驗收情境）
 docs/reports/                evolve 產出的報告
 setup/                       align.py、deploy.py、capabilities.py、govcheck.py 及各自的 test_*.py
@@ -208,9 +209,29 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 
 ---
 
-## hooks 與記憶體回收
+## hooks
 
-`claude/hooks/cleanup-orphans.{sh,ps1}` 會部署到 `~/.claude/hooks/`，但**要不要啟用由各機器自己的 `settings.json` 決定**，部署不會幫你掛。
+`claude/hooks/` 底下的腳本都會部署到 `~/.claude/hooks/`，但**要不要啟用由各機器自己的 `settings.json` 決定**，部署不會幫你掛（`manifest/settings.json` 的 `hooks` 區塊是建議接法，`align` 只會回報指到不存在腳本的 hook）。
+
+| 腳本 | 事件 | 做什麼 |
+|---|---|---|
+| `guard-delete.sh` | `PreToolUse`（matcher `Bash`） | 整條指令裡出現 `rm`／`rmdir`／`unlink`／`shred`／`find -delete`／`Remove-Item`／`git clean -f` 就擋下（exit 2）並把 50-safety 的替代做法回給模型。permissions 的 deny 只比對指令開頭，`cd x && rm -rf y` 擋不到，這支補上。`npm rm`、`git rm` 不擋。 |
+| `ai-global-check.sh` | `SessionStart` | 跑 `deploy.py check`，在 session 開頭印一行「同步／不同步（N 項）」；唯讀、永遠 exit 0。 |
+| `cleanup-orphans.sh` | `SessionEnd` | 回收該 session 留下的背景程序，見下節。 |
+
+掛法（`~/.claude/settings.json`）：
+
+```json
+"hooks": {
+  "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/guard-delete.sh"}]}],
+  "SessionStart": [{"matcher": "*", "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/ai-global-check.sh", "timeout": 20}]}],
+  "SessionEnd": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/cleanup-orphans.sh --scope session"}]}]
+}
+```
+
+Windows 的 Claude Code 也是用 `bash`（Git Bash）跑這些 `.sh`；guard 需要 `python3`／`python` 在 PATH，找不到就放行不擋。Windows 端尚未實測。
+
+### 記憶體回收
 
 - macOS：`SessionEnd` hook 跑 `bash ~/.claude/hooks/cleanup-orphans.sh --scope session`；另有 launchd 每 2 小時跑 `--scope global`（已裝好的機器保留運作，排程安裝器已退役）。
 - Windows：手動。桌面「Claude 清理背景程序.cmd」或 `~/.claude/hooks/cleanup-orphans.ps1 -Scope global`。

@@ -36,7 +36,7 @@ Windows 使用 `Move-Item`，同樣先建立唯一目的目錄並確認目的檔
 
 ## 執行層與驗證邊界
 
-- Markdown 是行為約定，不是安全隔離。sandbox／工具權限限制可操作範圍；執行前 command hook 可攔已定義操作；CI 驗證提交結果。各層能力不同，不能互相冒充。
+- Markdown 是行為約定，不是安全隔離。sandbox／工具權限限制可操作範圍；執行前 command hook 可攔已定義操作（Claude Code 的 `~/.claude/hooks/guard-delete.sh` 擋整條指令中的 rm／rmdir／find -delete／Remove-Item／git clean -f，permissions deny 只比對前綴）；CI 驗證提交結果。各層能力不同，不能互相冒充；hook 有沒有掛在 settings.json 要另外查證。
 - shell 黑名單無法全面攔住 Python、其他工具或網路傳輸；不要用加幾個命令樣式宣稱所有紅線已受強制。
 - 新增防護需涵蓋允許與拒絕案例，使用 mock／隔離測試，確認 hook 實際掛載。執行後 hook 不能撤銷已發生的外部動作。
 - 未驗證的平台、未掛載的防護與無權限控制的環境，明確標為未驗證或限制；不自行切換全域權限設定。
@@ -45,3 +45,4 @@ Windows 使用 `Move-Item`，同樣先建立唯一目的目錄並確認目的檔
 - 2026-07-03 建檔（Fable 5）
 - 2026-09-07 保留可逆刪除與保密底線，釐清本次授權、既有檔案修改與無秘密範本，補上工具保護的實際邊界。
 - 2026-09-07 合併至 main 時 trash 路徑改為 `~/.ai-trash/`（兩平台同路徑，不再依賴 `~/Developer`）（Fable 5.1）
+- 2026-09-15 補記 guard-delete hook 為執行前攔截層，掛載狀態須另行查證（Fable 5.1，使用者授權）
