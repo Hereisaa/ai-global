@@ -12,8 +12,8 @@
    - `extra` 本機多出、manifest 沒有 → 保留／停用／移到 trash（預設保留，不追問）
    - `duplicate` 獨立 skill 與 plugin 內同名 → 獨立版移到 trash／停用／保留（預設移到 trash）
    - `version` 安裝版本與 manifest 不同 → 更新／維持（預設更新）
-   - `hook` settings.json 的 hook 指向不存在的腳本 → 保留／從設定移除（預設保留）
-   - `hookmissing` manifest 建議的 hook 已部署但沒掛進 settings.json → 不掛／掛進去（預設不掛；掛了要新 session 才生效）
+   - `hook` settings.json 的 hook 指向不存在的腳本，或掛了 manifest 只建議在別的平台掛的 hook → 保留／從設定移除（預設保留）
+   - `hookmissing` manifest 建議本平台掛的 hook 沒掛進 settings.json → 不掛／掛進去（預設不掛；掛了要新 session 才生效）
    使用者沒回應的項目一律當「預設值」，但 `extra`、`switch`、`hook`、`hookmissing` 的預設都是不動，所以不會有隱性變更。
 4. 收齊決定後執行 `python <repo>/setup/align.py --no-pull --yes --resolve KEY=ACTION ...`（可多個 `--resolve`）。
 5. 跑 `python <repo>/setup/capabilities.py list` 對帳，並跑 `python <repo>/setup/deploy.py check`。回報：pull 結果、部署變更、補裝與失敗項、每項衝突的處置、trash 位置與分支。需要新工作階段才載入的能力明說。

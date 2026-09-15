@@ -117,8 +117,8 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 | `duplicate` | 獨立 skill 和 plugin 裡的同名 | trash／disable／keep | trash |
 | `switch` | 本機開關和 manifest 建議相反 | enable／disable／keep | keep |
 | `version` | 版本和 manifest 不同 | update／keep | update |
-| `hook` | settings.json 指到不存在的 hook 腳本 | keep／unwire | keep |
-| `hookmissing` | manifest 建議的 hook 已部署但 settings.json 沒掛 | keep／wire | keep |
+| `hook` | settings.json 指到不存在的 hook 腳本，或掛了只建議在別的平台掛的 hook | keep／unwire | keep |
+| `hookmissing` | manifest 建議本平台掛的 hook，settings.json 沒掛 | keep／wire | keep |
 
 ### `deploy.py`
 
@@ -218,7 +218,7 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 |---|---|---|
 | `guard-delete.sh` | `PreToolUse`（matcher `Bash`） | 整條指令裡出現 `rm`／`rmdir`／`unlink`／`shred`／`find -delete`／`Remove-Item`／`git clean -f` 就擋下（exit 2）並把 50-safety 的替代做法回給模型。permissions 的 deny 只比對指令開頭，`cd x && rm -rf y` 擋不到，這支補上。`npm rm`、`git rm` 不擋。 |
 | `ai-global-check.sh` | `SessionStart` | 跑 `deploy.py check`，在 session 開頭印一行「同步／不同步（N 項）」；唯讀、永遠 exit 0。 |
-| `cleanup-orphans.sh` | `SessionEnd` | 回收該 session 留下的背景程序，見下節。 |
+| `cleanup-orphans.sh` | `SessionEnd`（manifest 標 `platforms: ["macOS"]`，Windows 不建議） | 回收該 session 留下的背景程序，見下節。 |
 
 掛法（`~/.claude/settings.json`）：
 

@@ -146,29 +146,58 @@ def dangling_hooks(home):
 
 
 def recommended_hooks(repo):
-    """(event, matcher, hook) for every command hook manifest/settings.json recommends."""
+    """(event, matcher, hook, platforms) for every command hook manifest/settings.json
+    recommends. platforms is None (everywhere) or a list of deploy.platform_name() values."""
     hooks = cap.read_json(repo / "manifest/settings.json").get("claude_settings", {}).get("hooks", {})
     for event, groups in hooks.items() if isinstance(hooks, dict) else []:
         for group in groups if isinstance(groups, list) else []:
-            for hook in group.get("hooks", []) if isinstance(group, dict) else []:
+            if not isinstance(group, dict):
+                continue
+            platforms = group.get("platforms") if isinstance(group.get("platforms"), list) else None
+            for hook in group.get("hooks", []):
                 if isinstance(hook, dict) and hook.get("type") == "command" and isinstance(hook.get("command"), str):
-                    yield event, group.get("matcher"), hook
+                    yield event, group.get("matcher"), hook, platforms
 
 
-def missing_hooks(repo, home):
-    """Recommended hooks whose script is deployed but which settings.json does not
-    run for that event. Wiring is never automatic: a machine may opt out."""
-    settings = cap.read_json(home / ".claude/settings.json")
+def wired_scripts(home):
+    """{event: {script name}} for every command hook settings.json currently runs."""
     wired = {}
-    for event, command in hook_commands(settings):
+    for event, command in hook_commands(cap.read_json(home / ".claude/settings.json")):
         wired.setdefault(event, set()).update(hook_scripts(home, command))
+    return wired
+
+
+def missing_hooks(repo, home, platform=None):
+    """Recommended hooks for this platform whose script exists (in the repo, so it is
+    deployed by the same run, or already at home) but which settings.json does not run
+    for that event. Wiring is never automatic: a machine may opt out."""
+    platform = platform or deploy.platform_name()
+    wired = wired_scripts(home)
     result = []
-    for event, matcher, hook in recommended_hooks(repo):
+    for event, matcher, hook, platforms in recommended_hooks(repo):
+        if platforms and platform not in platforms:
+            continue
         names = hook_scripts(home, hook["command"])
-        if not names or not (home / ".claude/hooks" / names[0]).exists():
+        if not names or not ((repo / "claude/hooks" / names[0]).is_file() or (home / ".claude/hooks" / names[0]).exists()):
             continue
         if names[0] not in wired.get(event, set()):
             result.append((event, matcher, hook))
+    return result
+
+
+def misplaced_hooks(repo, home, platform=None):
+    """(event, command, platforms) for hooks the manifest reserves for other platforms
+    but which settings.json runs on this one."""
+    platform = platform or deploy.platform_name()
+    settings = cap.read_json(home / ".claude/settings.json")
+    result = []
+    for event, matcher, hook, platforms in recommended_hooks(repo):
+        if not platforms or platform in platforms:
+            continue
+        names = hook_scripts(home, hook["command"])
+        for wired_event, command in hook_commands(settings):
+            if wired_event == event and names and names[0] in hook_scripts(home, command):
+                result.append((event, command, platforms))
     return result
 
 
@@ -240,9 +269,13 @@ def find_conflicts(repo, home, deploy_results, rows):
     for event, command in dangling_hooks(home):
         conflicts.append(conflict("hook", f"hook:{event}:{command}", f"settings.json 的 {event} hook 指向不存在的腳本",
                                   command, default=KEEP))
+    for event, command, platforms in misplaced_hooks(repo, home):
+        conflicts.append(conflict("hook", f"hook:{event}:{command}",
+                                  f"只建議在 {'／'.join(platforms)} 掛的 {event} hook 在本機（{deploy.platform_name()}）掛著",
+                                  command, default=KEEP))
     for event, matcher, hook in missing_hooks(repo, home):
         conflicts.append(conflict("hookmissing", f"hookmissing:{event}:{hook['command']}",
-                                  f"建議的 {event} hook 已部署但沒掛進 settings.json",
+                                  f"建議的 {event} hook 沒掛進 settings.json（腳本由本次部署放到 ~/.claude/hooks/）",
                                   hook["command"], default=KEEP, matcher=matcher, hook=hook))
     return conflicts
 

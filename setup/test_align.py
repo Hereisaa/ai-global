@@ -198,20 +198,30 @@ class AlignTests(unittest.TestCase):
     def test_recommended_hook_missing_is_a_conflict_and_wire_adds_it(self):
         (self.repo / "claude/hooks").mkdir()
         (self.repo / "claude/hooks/guard.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+        (self.repo / "claude/hooks/mac-only.sh").write_text("#!/bin/sh\n", encoding="utf-8")
         (self.repo / "manifest/settings.json").write_text(json.dumps({"claude_settings": {"hooks": {
             "_note": "ignored",
             "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/guard.sh"}]}],
-            "SessionEnd": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/not-deployed.sh"}]}],
+            "SessionEnd": [{"platforms": ["macOS"], "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/mac-only.sh"}]}],
+            "Notification": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/not-in-repo.sh"}]}],
         }}}), encoding="utf-8")
-        # An absolute-path spelling of the same script counts as wired.
+        # An absolute-path spelling of the same script counts as wired; the macOS-only
+        # hook is wired here although this "machine" is Windows.
         settings = {"hooks": {"Stop": [{"hooks": [{"type": "command",
-                    "command": f"bash '{self.home}/.claude/hooks/guard.sh'"}]}]}}
+                    "command": f"bash '{self.home}/.claude/hooks/guard.sh'"}]}],
+                    "SessionEnd": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/mac-only.sh"}]}]}}
         (self.home / ".claude").mkdir(parents=True)
         (self.home / ".claude/settings.json").write_text(json.dumps(settings), encoding="utf-8")
-        summary = self.run_align(yes=True)
+        with patch.object(align.deploy, "platform_name", lambda: "Windows"):
+            summary = self.run_align(yes=True)  # scripts are not deployed yet when conflicts are computed
         missing = [c for c in summary["conflicts"] if c["kind"] == "hookmissing"]
         self.assertEqual([c["key"] for c in missing], ["hookmissing:PreToolUse:bash ~/.claude/hooks/guard.sh"])
-        self.assertEqual([c["kind"] for c in summary["conflicts"] if c["kind"] == "hook"], [])  # absolute path resolved
+        hook_conflicts = [c for c in summary["conflicts"] if c["kind"] == "hook"]
+        self.assertEqual([c["key"] for c in hook_conflicts], ["hook:SessionEnd:bash ~/.claude/hooks/mac-only.sh"])
+        self.assertIn("macOS", hook_conflicts[0]["title"])
+        with patch.object(align.deploy, "platform_name", lambda: "macOS"):
+            summary = self.run_align(yes=True)
+        self.assertEqual([c["kind"] for c in summary["conflicts"] if c["kind"] in ("hook", "hookmissing")], ["hookmissing"])
         summary = self.run_align(yes=True, resolve={"hookmissing:PreToolUse:bash ~/.claude/hooks/guard.sh": "wire"})
         # The fixture's github-sourced skill cannot be fetched here; only hook failures matter.
         self.assertEqual([f for f in summary["failures"] if "hook" in f], [])
