@@ -194,6 +194,23 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         self.assertEqual(result.returncode, 0)
         self.assertIn("hook 失效", result.stderr)
 
+    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
+    def test_guard_delete_skips_a_python3_that_does_not_run(self):
+        # Windows ships a "python3" on PATH that is only the Microsoft Store redirector:
+        # it exits (code 49) with no output. The guard must fall through to a real python.
+        shims = Path(tempfile.mkdtemp(prefix="shims-", dir=self.fixtures))
+        (shims / "python3").write_text("#!/bin/sh\nexit 49\n", encoding="utf-8", newline="\n")
+        real = sys.executable.replace("\\", "/")
+        (shims / "python").write_text(f'#!/bin/sh\nexec "{real}" "$@"\n', encoding="utf-8", newline="\n")
+        for shim in ("python3", "python"):
+            (shims / shim).chmod(0o755)
+        env = dict(os.environ, PATH=str(shims) + os.pathsep + os.environ.get("PATH", ""))
+        payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm x"}})
+        result = subprocess.run([BASH, str(HOOKS / "guard-delete.sh")], input=payload, env=env,
+                                capture_output=True, text=True, encoding="utf-8", errors="replace")
+        self.assertEqual(result.returncode, 2, result.stderr)
+        self.assertIn("50-safety", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

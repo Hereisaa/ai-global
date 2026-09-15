@@ -29,7 +29,9 @@ if [ -z "$repo" ] || [ ! -f "$repo/setup/deploy.py" ]; then
   exit 0
 fi
 
-output=$("$py" "$repo/setup/deploy.py" check 2>&1)
+# Pass the home explicitly: a native Windows python resolves Path.home() from
+# USERPROFILE and ignores the HOME this shell (and the state lookup above) used.
+output=$("$py" "$repo/setup/deploy.py" check --home "$(cygpath -w "$HOME" 2>/dev/null || printf '%s' "$HOME")" 2>&1)
 rc=$?
 head=$(git -C "$repo" rev-parse --short HEAD 2>/dev/null || echo unknown)
 branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)

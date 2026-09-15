@@ -9,9 +9,14 @@
 # cannot be parsed, is allowed (exit 0) so a broken hook never locks the user out.
 set -u
 
+# Being on PATH is not enough: on Windows "python3" is often the Microsoft
+# Store redirector stub (AppInstallerPythonRedirector.exe), which exits with no
+# output. Only a candidate that actually runs is taken.
 py=""
 for candidate in python3 python py; do
-  if command -v "$candidate" >/dev/null 2>&1; then py="$candidate"; break; fi
+  command -v "$candidate" >/dev/null 2>&1 || continue
+  "$candidate" -c 'import sys' >/dev/null 2>&1 || continue
+  py="$candidate"; break
 done
 if [ -z "$py" ]; then
   # Fail open, but say so: the model must not assume this guard is active.
