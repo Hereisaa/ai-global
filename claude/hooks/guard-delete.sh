@@ -27,8 +27,10 @@ payload=$(cat)
 import json, re, sys
 
 try:
-    event = json.loads(sys.argv[1])
+    # A BOM sneaks in when the payload comes through a PowerShell pipe.
+    event = json.loads(sys.argv[1].lstrip("\ufeff"))
 except (IndexError, ValueError):
+    sys.stderr.write("ai-global guard-delete: hook 輸入不是 JSON，本次未檢查刪除指令（紅線仍然有效）。\n")
     sys.exit(0)
 if not isinstance(event, dict):
     sys.exit(0)

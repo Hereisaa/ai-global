@@ -132,7 +132,12 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
             code, _ = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
             self.assertEqual(code, 0, command)
         self.assertEqual(run(json.dumps({"tool_name": "Read", "tool_input": {"file_path": "rm"}}))[0], 0)
-        self.assertEqual(run("not json")[0], 0)
+        code, err = run("not json")
+        self.assertEqual(code, 0)
+        self.assertIn("不是 JSON", err)
+        # PowerShell pipes prepend a BOM; the guard must still parse and block.
+        code, err = run("\ufeff" + json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm -rf x"}}) + "\r\n")
+        self.assertEqual(code, 2)
 
     @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
     def test_session_check_reports_missing_state_and_sync_status(self):
