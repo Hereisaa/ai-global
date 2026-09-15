@@ -232,6 +232,39 @@ class AlignTests(unittest.TestCase):
         self.assertEqual([c for c in self.run_align(yes=True)["conflicts"] if c["kind"] == "hookmissing"], [])
 
 
+class EnvironmentTests(unittest.TestCase):
+    def probe(self, output, platform="Windows"):
+        def fake_run(args, **kwargs):
+            self.assertEqual(args[1], "-c")
+            return FakeResult(0, output)
+        return align.environment(platform=platform, run=fake_run, which=lambda: "/usr/bin/bash")
+
+    def test_store_stub_is_warned_and_working_python_is_ok(self):
+        rows = self.probe("python3\t/c/Users/x/AppData/Local/Microsoft/WindowsApps/python3\t49\t\npython\t/c/Python314/python\t0\t3.14\n")
+        self.assertEqual([r[0] for r in rows], ["OK", "OK", "WARN"])
+        self.assertIn("空殼", rows[2][1])
+
+    def test_no_working_python_gives_install_hint_for_the_platform(self):
+        rows = self.probe("python3\t/x/python3\t49\t\n")
+        self.assertEqual(rows[-1][0], "FAIL")
+        self.assertIn("winget", rows[-1][2])
+        rows = self.probe("", platform="macOS")
+        self.assertIn("brew install", rows[-1][2])
+
+    def test_old_python_only_is_a_version_failure(self):
+        rows = self.probe("python3\t/usr/bin/python3\t0\t3.9\n", platform="macOS")
+        self.assertEqual(rows[-1][0], "FAIL")
+        self.assertIn("3.11", rows[-1][2])
+
+    def test_missing_bash_is_a_failure(self):
+        rows = align.environment(platform="Windows", run=None, which=lambda: None)
+        self.assertEqual(rows, [("FAIL", "bash", "Claude Code 的 hooks 用 bash 執行；安裝 Git for Windows")])
+
+    def test_real_probe_runs(self):
+        rows = align.environment()
+        self.assertEqual(rows[0][1], "bash")
+
+
 class TuiBootstrapTests(unittest.TestCase):
     """ensure_tui: builds .venv on a yes, re-runs inside it, never loops."""
 

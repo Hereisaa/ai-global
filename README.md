@@ -106,7 +106,7 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 | `--no-venv` | 缺選單套件時不問、不建 `.venv`，直接文字模式 |
 | `--json` | 最後多印 JSON 摘要 |
 
-輸出四張表：`DRIFT` 漂移、`DEPLOY` 部署了什麼、`INSTALL` 補裝結果、`CONFLICT` 要你決定的。回傳碼 `0` 完成、`2` 還有衝突、`1` 有失敗。
+輸出五張表：`ENV` hooks 執行環境（bash、能跑的 python 及版本，缺什麼印安裝指令）、`DRIFT` 漂移、`DEPLOY` 部署了什麼、`INSTALL` 補裝結果、`CONFLICT` 要你決定的。回傳碼 `0` 完成、`2` 還有衝突、`1` 有失敗。
 
 衝突七種，每種的預設都是最保守的：
 
@@ -216,7 +216,7 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 
 | 腳本 | 事件 | 做什麼 |
 |---|---|---|
-| `guard-delete.sh` | `PreToolUse`（matcher `Bash`） | 整條指令裡出現 `rm`／`rmdir`／`unlink`／`shred`／`find -delete`／`Remove-Item`／`git clean -f` 就擋下（exit 2）並把 50-safety 的替代做法回給模型。permissions 的 deny 只比對指令開頭，`cd x && rm -rf y` 擋不到，這支補上。`npm rm`、`git rm` 不擋。 |
+| `guard-delete.sh` | `PreToolUse`（matcher `Bash`） | 整條指令裡出現 `rm`／`rmdir`／`unlink`／`shred`／`find -delete`／`Remove-Item`／`git clean -f`／`shutil.rmtree` 等就擋下（exit 2）並把 50-safety 的替代做法回給模型。permissions 的 deny 只比對指令開頭，`cd x && rm -rf y` 擋不到，這支補上。`npm rm`、`git rm`、`grep 'rm -rf'` 不擋。**純 bash＋grep＋sed，不需要 python**。 |
 | `ai-global-check.sh` | `SessionStart` | 跑 `deploy.py check`，在 session 開頭印一行「同步／不同步（N 項）」；唯讀、永遠 exit 0。 |
 | `cleanup-orphans.sh` | `SessionEnd`（manifest 標 `platforms: ["macOS"]`，Windows 不建議） | 回收該 session 留下的背景程序，見下節。 |
 
@@ -230,7 +230,7 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 }
 ```
 
-Windows 的 Claude Code 也是用 `bash`（Git Bash）跑這些 `.sh`；guard 需要 `python3`／`python` 在 PATH，找不到就放行不擋。Windows 端尚未實測。
+Windows 的 Claude Code 也是用 `bash`（Git Bash）跑這些 `.sh`。`ai-global-check.sh` 需要 bash 裡找得到能執行的 Python 3.11+；Windows 的 Store 別名 `python3` 只是空殼（exit 49、無輸出），hooks 會跳過它。`align` 開頭的 `ENV` 節會檢查 bash 與 python 並印安裝指令，這是新機器最先該看的一節。
 
 ### 記憶體回收
 

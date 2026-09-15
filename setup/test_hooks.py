@@ -132,9 +132,15 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
             code, _ = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": command}}))
             self.assertEqual(code, 0, command)
         self.assertEqual(run(json.dumps({"tool_name": "Read", "tool_input": {"file_path": "rm"}}))[0], 0)
-        code, err = run("not json")
+        self.assertEqual(run("not json")[0], 0)  # not a Bash call: silently allowed
+        code, err = run(json.dumps({"tool_name": "Bash", "tool_input": {}}))
         self.assertEqual(code, 0)
-        self.assertIn("不是 JSON", err)
+        self.assertIn("找不到 command", err)
+        # Escapes inside the JSON string must be undone before matching.
+        code, _ = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "echo \"a\"\ncd x && rm -rf y"}}))
+        self.assertEqual(code, 2)
+        code, _ = run(json.dumps({"tool_name": "Bash", "tool_input": {"command": "printf 'a\\nb'; ls"}}))
+        self.assertEqual(code, 0)
         # PowerShell pipes prepend a BOM; the guard must still parse and block.
         code, err = run("\ufeff" + json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm -rf x"}}) + "\r\n")
         self.assertEqual(code, 2)
@@ -185,14 +191,12 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         self.assertIn("boom", result.stdout)
         self.assertNotIn("0 項", result.stdout)
 
-    @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
-    def test_guard_delete_without_python_fails_open_but_says_so(self):
-        payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": "rm x"}})
-        env = dict(os.environ, PATH="/nonexistent")
-        result = subprocess.run([BASH, str(HOOKS / "guard-delete.sh")], input=payload, env=env,
-                                capture_output=True, text=True, encoding="utf-8", errors="replace")
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("hook 失效", result.stderr)
+    def test_guard_delete_needs_no_interpreter(self):
+        # The whole point of the bash rewrite: a missing or fake python must not matter.
+        source = (HOOKS / "guard-delete.sh").read_text(encoding="utf-8")
+        code = [line for line in source.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+        for name in ("python", "perl", "node", "jq"):
+            self.assertFalse(any(name in line for line in code), f"{name} referenced in guard-delete.sh")
 
     @unittest.skipUnless(BASH and Path(BASH).exists(), "Bash unavailable")
     def test_guard_delete_skips_a_python3_that_does_not_run(self):

@@ -59,6 +59,70 @@ def sh(args, cwd=None):
     return result.returncode == 0, (result.stdout + result.stderr).strip()
 
 
+# ---------------------------------------------------------------- environment
+
+PY_PROBE = ("for c in python3.13 python3.12 python3.11 python3 python py; do "
+            "p=$(command -v \"$c\" 2>/dev/null) || continue; "
+            "v=$(\"$c\" -c 'import sys; print(\"%d.%d\" % sys.version_info[:2])' 2>/dev/null); rc=$?; "
+            "printf '%s\\t%s\\t%s\\t%s\\n' \"$c\" \"$p\" \"$rc\" \"$v\"; done")
+
+INSTALL_HINT = {
+    "macOS": "brew install python@3.12（內建 python3 是 3.9，太舊）",
+    "Windows": "winget install Python.Python.3.12（安裝時勾 Add to PATH），並到「設定 → 應用程式 → 進階應用程式設定 → 應用程式執行別名」關掉 python3.exe 的 Store 空殼",
+}
+
+
+def find_bash():
+    """bash as the hooks will see it. On Windows Claude Code uses Git Bash."""
+    found = shutil.which("bash")
+    if found and "system32" not in found.lower():
+        return found
+    for candidate in (Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe",
+                      Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/usr/bin/bash.exe"):
+        if candidate.is_file():
+            return str(candidate)
+    return found
+
+
+def environment(platform=None, run=subprocess.run, which=find_bash):
+    """[(status, item, note)] describing whether the hooks can run on this machine:
+    bash reachable, and a python that really executes (the Windows Store stub is on
+    PATH but exits without output) at 3.11+ for ai-global-check.sh. guard-delete.sh
+    needs no interpreter. Never raises; reports what it could not probe."""
+    platform = platform or deploy.platform_name()
+    hint = INSTALL_HINT.get(platform, "安裝 Python 3.11+ 並確定 bash 找得到")
+    bash = which()
+    if not bash:
+        note = "Claude Code 的 hooks 用 bash 執行；" + ("安裝 Git for Windows" if platform == "Windows" else "系統應內建，檢查 PATH")
+        return [("FAIL", "bash", note)]
+    rows = [("OK", "bash", bash)]
+    try:
+        result = run([bash, "-c", PY_PROBE], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        output = result.stdout
+    except (OSError, subprocess.SubprocessError) as exc:
+        return rows + [("WARN", "python", f"無法從 bash 探測：{exc}")]
+    working, stubs = [], []
+    for line in output.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 4:
+            continue
+        name, path, rc, version = parts
+        if rc != "0" or not version:
+            stubs.append(f"{name}（{path}）")
+        else:
+            working.append((name, path, version))
+    for name, path, version in working:
+        rows.append(("OK", f"python {version}", f"{name} → {path}"))
+    for stub in stubs:
+        rows.append(("WARN", "python 空殼", f"{stub} 在 PATH 上但跑不起來（Windows Store 別名或壞掉的連結）；hooks 會跳過它，但其他工具可能不會"))
+    ok_311 = any(tuple(int(x) for x in v.split(".")) >= (3, 11) for _, _, v in working)
+    if not working:
+        rows.append(("FAIL", "python", f"bash 裡找不到能執行的 python；ai-global-check.sh 會停用。安裝：{hint}"))
+    elif not ok_311:
+        rows.append(("FAIL", "python 版本", f"bash 裡的 python 都低於 3.11；ai-global-check.sh 需要 3.11+。安裝：{hint}"))
+    return rows
+
+
 # ---------------------------------------------------------------- git pull
 
 def pull(repo, echo):
@@ -449,6 +513,8 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     echo(f"ai-global align{'（--plan，唯讀）' if plan else ''}   {repo}  →  {home}")
     echo(RULE)
     pulled = None if plan or no_pull else pull(repo, echo)
+    env_rows = environment()
+    section(echo, "ENV", ["狀態", "項目", "說明"], [list(r) for r in env_rows if r[0] != "OK"], "bash 與 python 可用")
     check = deploy.run(repo, home, "check", echo=lambda *_: None)
     section(echo, "DRIFT", ["狀態", "檔案", "說明"],
             [[status, tilde(home, path), note] for status, path, note in check["results"]
@@ -556,7 +622,7 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
         echo(line("!", "DONE", f"{len(unresolved)} 項衝突待決"))
     else:
         echo(line("v", "DONE", "完成"))
-    return {"pull": pulled, "deploy": result, "missing": [i["id"] for i in missing],
+    return {"pull": pulled, "env": env_rows, "deploy": result, "missing": [i["id"] for i in missing],
             "conflicts": conflicts, "unresolved": unresolved, "failures": failures}
 
 

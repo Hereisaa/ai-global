@@ -19,7 +19,7 @@ for candidate in python3.13 python3.12 python3.11 python3 python py; do
   fi
 done
 if [ -z "$py" ]; then
-  echo "ai-global: 找不到 Python 3.11+，無法檢查部署漂移。"
+  echo "ai-global: bash 裡找不到能執行的 Python 3.11+，無法檢查部署漂移。macOS：brew install python@3.12；Windows：winget install Python.Python.3.12 並關掉 Store 的 python3 別名。跑 python setup/align.py 的 ENV 節看細節。"
   exit 0
 fi
 
