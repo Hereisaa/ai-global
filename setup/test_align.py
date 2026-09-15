@@ -195,6 +195,31 @@ class AlignTests(unittest.TestCase):
         self.assertTrue(any("不支援動作" in f for f in summary["failures"]))
         self.assertTrue((self.home / ".claude/skills/stray").exists())
 
+    def test_recommended_hook_missing_is_a_conflict_and_wire_adds_it(self):
+        (self.repo / "claude/hooks").mkdir()
+        (self.repo / "claude/hooks/guard.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+        (self.repo / "manifest/settings.json").write_text(json.dumps({"claude_settings": {"hooks": {
+            "_note": "ignored",
+            "PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/guard.sh"}]}],
+            "SessionEnd": [{"hooks": [{"type": "command", "command": "bash ~/.claude/hooks/not-deployed.sh"}]}],
+        }}}), encoding="utf-8")
+        # An absolute-path spelling of the same script counts as wired.
+        settings = {"hooks": {"Stop": [{"hooks": [{"type": "command",
+                    "command": f"bash '{self.home}/.claude/hooks/guard.sh'"}]}]}}
+        (self.home / ".claude").mkdir(parents=True)
+        (self.home / ".claude/settings.json").write_text(json.dumps(settings), encoding="utf-8")
+        summary = self.run_align(yes=True)
+        missing = [c for c in summary["conflicts"] if c["kind"] == "hookmissing"]
+        self.assertEqual([c["key"] for c in missing], ["hookmissing:PreToolUse:bash ~/.claude/hooks/guard.sh"])
+        self.assertEqual([c["kind"] for c in summary["conflicts"] if c["kind"] == "hook"], [])  # absolute path resolved
+        summary = self.run_align(yes=True, resolve={"hookmissing:PreToolUse:bash ~/.claude/hooks/guard.sh": "wire"})
+        self.assertEqual(summary["failures"], [])
+        after = cap.read_json(self.home / ".claude/settings.json")
+        self.assertEqual(after["hooks"]["PreToolUse"], [{"matcher": "Bash", "hooks": [{"type": "command", "command": "bash ~/.claude/hooks/guard.sh"}]}])
+        self.assertEqual(len(after["hooks"]["Stop"]), 1)
+        self.assertTrue(any(p.name == "settings.json.before-wire" for p in (self.home / ".ai-trash").rglob("*")))
+        self.assertEqual([c for c in self.run_align(yes=True)["conflicts"] if c["kind"] == "hookmissing"], [])
+
 
 class TuiBootstrapTests(unittest.TestCase):
     """ensure_tui: builds .venv on a yes, re-runs inside it, never loops."""

@@ -46,6 +46,8 @@ CONFLICT_ACTIONS = {
     "version":   (("update", "更新到 manifest 版本"), (KEEP, "維持目前版本")),
     # settings.json hook points at a script that does not exist
     "hook":      ((KEEP, "保留"), ("unwire", "從 settings.json 移除")),
+    # a hook manifest/settings.json recommends is deployed but not wired in settings.json
+    "hookmissing": ((KEEP, "不掛"), ("wire", "掛進 settings.json")),
 }
 
 
@@ -123,13 +125,50 @@ def hook_commands(settings):
                     yield event, hook["command"]
 
 
+HOOK_SCRIPT = r"(?:~|\$HOME|\$\{HOME\}|%s)/\.claude/hooks/([\w.-]+)"
+
+
+def hook_scripts(home, command):
+    """Script names a hook command refers to, whether written as ~/.claude/hooks/x,
+    $HOME/.claude/hooks/x or with this home's absolute path (quoted or not)."""
+    pattern = HOOK_SCRIPT % re.escape(str(home).replace("\\", "/"))
+    return re.findall(pattern, command.replace("\\", "/"))
+
+
 def dangling_hooks(home):
     settings = cap.read_json(home / ".claude/settings.json")
     result = []
     for event, command in hook_commands(settings):
-        for match in re.finditer(r"~/\.claude/hooks/([\w.-]+)", command):
-            if not (home / ".claude/hooks" / match.group(1)).exists():
+        for name in hook_scripts(home, command):
+            if not (home / ".claude/hooks" / name).exists():
                 result.append((event, command))
+    return result
+
+
+def recommended_hooks(repo):
+    """(event, matcher, hook) for every command hook manifest/settings.json recommends."""
+    hooks = cap.read_json(repo / "manifest/settings.json").get("claude_settings", {}).get("hooks", {})
+    for event, groups in hooks.items() if isinstance(hooks, dict) else []:
+        for group in groups if isinstance(groups, list) else []:
+            for hook in group.get("hooks", []) if isinstance(group, dict) else []:
+                if isinstance(hook, dict) and hook.get("type") == "command" and isinstance(hook.get("command"), str):
+                    yield event, group.get("matcher"), hook
+
+
+def missing_hooks(repo, home):
+    """Recommended hooks whose script is deployed but which settings.json does not
+    run for that event. Wiring is never automatic: a machine may opt out."""
+    settings = cap.read_json(home / ".claude/settings.json")
+    wired = {}
+    for event, command in hook_commands(settings):
+        wired.setdefault(event, set()).update(hook_scripts(home, command))
+    result = []
+    for event, matcher, hook in recommended_hooks(repo):
+        names = hook_scripts(home, hook["command"])
+        if not names or not (home / ".claude/hooks" / names[0]).exists():
+            continue
+        if names[0] not in wired.get(event, set()):
+            result.append((event, matcher, hook))
     return result
 
 
@@ -201,6 +240,10 @@ def find_conflicts(repo, home, deploy_results, rows):
     for event, command in dangling_hooks(home):
         conflicts.append(conflict("hook", f"hook:{event}:{command}", f"settings.json 的 {event} hook 指向不存在的腳本",
                                   command, default=KEEP))
+    for event, matcher, hook in missing_hooks(repo, home):
+        conflicts.append(conflict("hookmissing", f"hookmissing:{event}:{hook['command']}",
+                                  f"建議的 {event} hook 已部署但沒掛進 settings.json",
+                                  hook["command"], default=KEEP, matcher=matcher, hook=hook))
     return conflicts
 
 
@@ -233,6 +276,8 @@ def apply_action(c, action, repo, home, trash, echo):
         installers.update_plugin(item, echo=echo)
     elif action == "unwire":
         unwire_hook(home, key, trash, echo)
+    elif action == "wire":
+        wire_hook(home, c, trash, echo)
     else:
         raise installers.InstallError(f"不支援的動作：{action}")
 
@@ -252,6 +297,27 @@ def unwire_hook(home, key, trash, echo):
         del settings["hooks"][event]
     path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
     echo(f"UNWIRE  {event}: {command}（備份 {backup}）")
+
+
+def wire_hook(home, c, trash, echo):
+    """Append the recommended hook as its own group so existing groups stay untouched."""
+    _, event, command = c["key"].split(":", 2)
+    path = home / ".claude/settings.json"
+    settings = cap.read_json(path)
+    backup = trash / "settings.json.before-wire"
+    backup.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and not backup.exists():
+        shutil.copy2(path, backup)
+    group = {"hooks": [dict(c["hook"])]}
+    if c.get("matcher") is not None:
+        group = {"matcher": c["matcher"], "hooks": group["hooks"]}
+    hooks = settings.setdefault("hooks", {})
+    if not isinstance(hooks, dict):
+        raise installers.InstallError("settings.json 的 hooks 不是物件，不自動改")
+    hooks.setdefault(event, []).append(group)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
+    echo(f"WIRE    {event}: {command}（備份 {backup}；新 session 才生效）")
 
 
 # ---------------------------------------------------------------- TUI bootstrap

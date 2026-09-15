@@ -53,7 +53,7 @@
       }
     },
     "hooks": {
-      "_note": "建議接法；govcheck/align 不比對此區塊，只回報指向不存在腳本的 hook。啟用與否各機器自行決定。",
+      "_note": "建議接法。align 會把「已部署但沒掛」的列成 hookmissing 衝突（預設不掛，選 wire 才掛）、「掛了但腳本不存在」的列成 hook 衝突；不自動改 settings.json。",
       "PreToolUse": [
         {
           "matcher": "Bash",

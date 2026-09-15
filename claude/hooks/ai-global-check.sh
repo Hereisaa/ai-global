@@ -33,8 +33,32 @@ output=$("$py" "$repo/setup/deploy.py" check 2>&1)
 rc=$?
 head=$(git -C "$repo" rev-parse --short HEAD 2>/dev/null || echo unknown)
 branch=$(git -C "$repo" rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)
+
+# Second axis: is the clone itself current? A quiet fetch (no prompt, short
+# timeout) then ahead/behind against upstream; offline just says so.
+remote_note=""
+if [ "${AI_GLOBAL_CHECK_NO_FETCH:-0}" != "1" ] && git -C "$repo" rev-parse --abbrev-ref '@{u}' >/dev/null 2>&1; then
+  if GIT_TERMINAL_PROMPT=0 git -C "$repo" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 fetch -q origin 2>/dev/null; then
+    counts=$(git -C "$repo" rev-list --left-right --count 'HEAD...@{u}' 2>/dev/null)
+    ahead=${counts%%[[:space:]]*}; behind=${counts##*[[:space:]]}
+    [ "${behind:-0}" -gt 0 ] && remote_note="$remote_note clone 落後 remote ${behind} 個 commit（git pull 後再 align）；"
+    [ "${ahead:-0}" -gt 0 ] && remote_note="$remote_note clone 有 ${ahead} 個 commit 未 push（另一台拿不到）；"
+  else
+    remote_note=" 無法連到 remote，未比對是否落後；"
+  fi
+elif [ "$branch" != "unknown" ]; then
+  remote_note=" 分支沒有 upstream，未比對 remote；"
+fi
+if [ "$branch" != "main" ] && [ "$branch" != "unknown" ]; then
+  remote_note="$remote_note 部署自分支 ${branch}（尚未在 main）；"
+fi
+
 if [ "$rc" -eq 0 ]; then
-  echo "ai-global: 全域設定與 clone 同步（$branch@${head}）。"
+  if [ -n "$remote_note" ]; then
+    echo "ai-global: 部署端與 clone 一致（$branch@${head}），但：${remote_note}"
+  else
+    echo "ai-global: 全域設定與 clone 同步（main@${head}，與 remote 一致）。"
+  fi
   exit 0
 fi
 drift=$(printf '%s\n' "$output" | grep -E '^(MISSING|STALE|BEHIND|EDITED|EXTRA) ' | sed 's/ - .*//')

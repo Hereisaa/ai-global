@@ -108,7 +108,7 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 
 輸出四張表：`DRIFT` 漂移、`DEPLOY` 部署了什麼、`INSTALL` 補裝結果、`CONFLICT` 要你決定的。回傳碼 `0` 完成、`2` 還有衝突、`1` 有失敗。
 
-衝突六種，每種的預設都是最保守的：
+衝突七種，每種的預設都是最保守的：
 
 | 類型 | 意思 | 可選 | 預設 |
 |---|---|---|---|
@@ -118,6 +118,7 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 | `switch` | 本機開關和 manifest 建議相反 | enable／disable／keep | keep |
 | `version` | 版本和 manifest 不同 | update／keep | update |
 | `hook` | settings.json 指到不存在的 hook 腳本 | keep／unwire | keep |
+| `hookmissing` | manifest 建議的 hook 已部署但 settings.json 沒掛 | keep／wire | keep |
 
 ### `deploy.py`
 
@@ -211,7 +212,7 @@ setup/                       align.py、deploy.py、capabilities.py、govcheck.p
 
 ## hooks
 
-`claude/hooks/` 底下的腳本都會部署到 `~/.claude/hooks/`，但**要不要啟用由各機器自己的 `settings.json` 決定**，部署不會幫你掛（`manifest/settings.json` 的 `hooks` 區塊是建議接法，`align` 只會回報指到不存在腳本的 hook）。
+`claude/hooks/` 底下的腳本都會部署到 `~/.claude/hooks/`，但**要不要啟用由各機器自己的 `settings.json` 決定**，部署不會幫你掛。`manifest/settings.json` 的 `hooks` 區塊是建議接法：`align` 發現建議的 hook 沒掛會列成 `hookmissing` 衝突，選 `wire` 才掛（新 session 生效）；指到不存在腳本的 hook 列成 `hook`，選 `unwire` 才移除。
 
 | 腳本 | 事件 | 做什麼 |
 |---|---|---|

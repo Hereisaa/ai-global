@@ -139,6 +139,8 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         home = Path(tempfile.mkdtemp(prefix="home-", dir=self.fixtures))
         env = dict(os.environ, HOME=str(home))
 
+        env["AI_GLOBAL_CHECK_NO_FETCH"] = "1"
+
         def hook():
             return subprocess.run([BASH, str(HOOKS / "ai-global-check.sh")], env=env, capture_output=True,
                                   text=True, encoding="utf-8", errors="replace")
@@ -160,8 +162,10 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         self.assertEqual(deploy.returncode, 0, deploy.stdout + deploy.stderr)
         result = hook()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("同步", result.stdout)
+        self.assertIn("一致", result.stdout)
         self.assertNotIn("不同步", result.stdout)
+        self.assertIn("沒有 upstream", result.stdout)
+        self.assertIn("部署自分支", result.stdout)  # fixture is on the default branch, not main
 
         (repo / "governance/20-judgment.md").write_text("# newer\n", encoding="utf-8")
         result = hook()
