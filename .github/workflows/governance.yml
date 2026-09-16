@@ -13,6 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       PYTHONDONTWRITEBYTECODE: '1'
+      PYTHONUTF8: '1'  # Windows runner defaults stdout to cp1252, which cannot encode the CJK check output
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6

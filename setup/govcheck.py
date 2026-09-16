@@ -17,6 +17,7 @@ from datetime import date
 import json
 from pathlib import Path
 import re
+import sys
 from urllib.parse import unquote, urlsplit
 
 try:
@@ -341,6 +342,8 @@ def main(argv=None):
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1], help="待檢查的倉庫路徑")
     parser.add_argument("--local", action="store_true", help="額外對帳本地部署副本與白名單設定")
     args = parser.parse_args(argv)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")  # Windows cp1252 console cannot encode CJK; degrade instead of crash
     checks = Checks()
     root = args.repo.resolve()
     manifest = checks.repository(root)
