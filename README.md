@@ -1,17 +1,110 @@
 # ai-global
 
-我給 AI 工具（Claude Code／Cowork、Codex）的**全域設定**，兩台電腦（macOS 主力、Windows 副機）共用同一份。
+## 專案目的
 
-裡面有四種東西：
+ai-global 是我個人使用 **Claude Code 與 Codex 程式 Agent 的共用設定倉庫**。把工作規則、工具設定與選配能力放在同一份 Git 正本中，讓不同工具與電腦有一致的工作方式，也能追蹤修改和回復版本。
 
-| 東西 | 是什麼 | 部署到哪 |
+目前用途是我與 Agent 一起寫程式、修問題、看程式碼及維護專案。專案重點是讓這個日常環境容易管理；各應用專案自己的建置、測試與發布流程仍由該專案設定。
+
+## 能做什麼、幫助什麼
+
+| 能力 | 對日常開發的幫助 |
+|---|---|
+| 共用工作規則 | Agent 使用繁體中文、保留既有修改、在授權範圍內持續完成工作，交付時說清楚驗證與限制 |
+| 操作安全原則 | 工作檔案採可回復處理、秘密不輸出；push、發布等對外操作依明確授權執行 |
+| 設定部署與漂移檢查 | 不必逐台手動複製入口文件；能分辨未部署、正本更新與部署端被另外改過 |
+| 基本與選配能力管理 | 查看 skills／plugins 是否已裝、是否啟用；同步保留本機選擇，常用能力可持續開啟 |
+| Claude 輔助工具 | 提供狀態列、啟動時部署檢查及刪除指令攔截 hook；是否掛載由本機設定決定 |
+| 維護檢查與紀錄 | 檢查規則連結及腳本行為，保留修改歷史；工具升級或出現問題時再核對受影響來源 |
+
+基本預設包含 ai-global 維護入口（Claude）及 context7 文件查詢；前端設計、動畫、知識庫與額外維護能力屬選配。需要時可請 Agent 開啟指定能力，或使用 `capabilities.py`；停用後仍保留安裝內容，通常需新對話確認載入。詳見[能力選配指南](docs/reference/capability-guide.md)。
+
+文字規則提供工作約定，真正的執行限制取決於工具權限、sandbox 與已生效的 hooks。檔案比對通過只代表部署內容一致，不代表當次對話已載入或所有操作都受保護。
+
+## 怎麼辦到的
+
+共用設定分成四層：
+
+| 層次 | 是什麼 | 放在哪裡 |
 |---|---|---|
-| router | `CLAUDE.md`、`AGENTS.md`，工具每次開 session 自動讀的入口 | `~/.claude/`、`~/.codex/` |
-| 憲法（governance） | 委派、判斷、安全、工程等規則，router 依情境路由過去讀。有自己的索引 [governance/README.md](governance/README.md)，使用者手冊在 [governance/USER-GUIDE.md](governance/USER-GUIDE.md) | `~/.ai-global/governance/` |
-| 自製能力 | `/ai-global` skill、hooks、statusline | `~/.claude/` |
-| 第三方清單（manifest） | 該裝哪些 skills／plugins、版本多少 | 不部署，只用來對帳 |
+| 入口（router） | Claude 的 `CLAUDE.md`、Codex 的 `AGENTS.md`，摘要基本規則並依任務指向相關文件 | 部署到 `~/.claude/`、`~/.codex/` |
+| 工作規則（governance） | 授權、安全、工程及維護規則，需要時才讀；[索引](governance/README.md)與[使用者手冊](governance/USER-GUIDE.md)提供導航 | 部署到 `~/.ai-global/governance/` |
+| 輔助工具 | `/ai-global` skill、hooks 與 statusline；Python 腳本負責部署、對帳、安裝及明確開關 | Claude 檔案部署到 `~/.claude/`；Python 腳本留在正本 |
+| 清單（manifest） | 基本／選配能力、共用設定參考及外部核對來源 | 留在正本，供腳本與維護流程讀取 |
 
-運作方式一句話：**在 clone 裡改檔 → 跑 `align` → 它把檔複製到工具讀的位置**；另一台 `git pull` 再跑一次 `align` 就同步了。所有被換掉的檔都搬進 `~/.ai-trash/`，不刪東西。
+```text
+Git 正本：入口、規則、輔助工具與清單
+    │
+    ├─ deploy：複製 repo 管理的檔案，保留被取代內容
+    │      ├─ ~/.codex/AGENTS.md
+    │      ├─ ~/.claude/CLAUDE.md、skills、hooks、statusline
+    │      └─ ~/.ai-global/governance/ 與部署狀態
+    │
+    ├─ check：比對目前內容與上次部署紀錄，回報漂移
+    └─ align：同步正本、部署、補裝基本缺項，明確處理衝突
+```
+
+另一台電腦取得已發布的 Git 版本後再執行 align，才會更新那台的部署。能力開關保留在各機器，align 不重設；部署與設定修改的備份放在 `~/.ai-trash/`。
+
+本倉庫已有 [GitHub Actions workflow](.github/workflows/governance.yml)，在 push／PR 時於 Linux、macOS、Windows 跑治理檢查與腳本測試。PR review bot 可另外在 GitHub 設定；ai-global 本身不提供 review bot。其他應用專案的 CI/CD 放在各自倉庫。
+
+## 專案樹狀結構
+
+下圖列主要檔案；commands、測試與報告以用途合併顯示，完整檔案可直接查看對應目錄。
+
+```text
+ai-global/
+├── README.md                         專案介紹與操作方式
+├── .github/
+│   └── workflows/
+│       └── governance.yml            GitHub Actions 跨平台檢查
+├── codex/
+│   └── AGENTS.md                     Codex 全域入口
+├── claude/
+│   ├── CLAUDE.md                     Claude 全域入口
+│   ├── statusline.sh                 Claude 狀態列
+│   ├── hooks/
+│   │   ├── guard-delete.sh           刪除指令攔截
+│   │   ├── ai-global-check.sh        啟動時檢查部署漂移
+│   │   ├── cleanup-orphans.sh        macOS 背景程序清理
+│   │   └── cleanup-orphans.ps1       Windows 清理工具
+│   └── skills/ai-global/
+│       ├── SKILL.md                  /ai-global 維護入口
+│       └── commands/                check、align、deploy、能力管理等流程
+├── governance/
+│   ├── README.md                     工作規則索引
+│   ├── USER-GUIDE.md                 給使用者的說明
+│   ├── 10-dispatch.md                委派與獨立審查
+│   ├── 20-judgment.md                授權、風險與完成判斷
+│   ├── 30-templates.md               派工與審查模板
+│   ├── 40-maintenance.md             設定與規則維護
+│   ├── 50-safety.md                  工作檔案、秘密與對外操作
+│   ├── 60-project-bootstrap.md       新專案與文件慣例
+│   ├── 70-behavior-contract.md       工作與溝通方式
+│   └── 80-engineering.md             工程原則與交付
+├── manifest/
+│   ├── skills.json                   基本／選配能力清單
+│   ├── settings.json                 共用設定與 hook 掛載參考
+│   └── sources.json                  工具改版時的核對來源
+├── setup/
+│   ├── align.py                      同步、部署、補裝與衝突處理
+│   ├── deploy.py                     部署檔案與內容比對
+│   ├── capabilities.py               能力清單、分組與開關
+│   ├── capabilities_tui.py           終端互動選單
+│   ├── installers.py                 指定能力的安裝處理
+│   ├── govcheck.py                   規則、路由與連結檢查
+│   ├── requirements-tui.txt          互動選單依賴
+│   └── test_*.py                     腳本與 hook 測試
+└── docs/
+    ├── CHANGELOG.md                  兩工具入口變更紀錄
+    ├── reference/
+    │   ├── capability-guide.md       能力選配指南
+    │   ├── agent-runtime.md          工具載入與權限機制
+    │   ├── environment-maintenance.md 機器維護備忘
+    │   ├── governance-evaluation.md  規則驗收情境
+    │   └── harness-eval-method.md    模型行為評估設計
+    └── reports/                      歷次核對、審查與優化紀錄
+```
 
 ---
 
@@ -20,7 +113,7 @@
 | 需要 | 說明 |
 |---|---|
 | git | clone、同步 |
-| **Python 3.11 以上** | macOS 內建的 `python3` 是 3.9，太舊：`brew install python@3.12`，之後用 `python3.12` 這個指令。Windows 從 python.org 裝 |
+| **Python 3.11 以上** | 先確認 Python 版本達 3.11；macOS 可用 `brew install python@3.12`，之後用 `python3.12`。Windows 可從 python.org 安裝 |
 | `claude`／`codex` CLI | 只在補裝第三方 plugin 時用到；沒裝的話那幾項會標 FAIL，其他照常 |
 
 互動選單用的套件（prompt_toolkit）**不用自己裝**，第一次 `align` 會問你要不要建 `.venv`，按 Enter 就好。
@@ -196,22 +289,6 @@ python -m unittest discover -s setup -p 'test_*.py'
 基本預設只有維護入口與 context7。其餘按 frontend、typescript、research、maintenance 分組選配；`default_enabled` 表示新環境是否自動補裝，不覆蓋已安裝能力的本機開關。一般 `align` 不裝選配，可用 `--only ID` 指定。詳見[能力選配與工作環境指南](docs/reference/capability-guide.md)。
 
 正本是 `manifest/skills.json`。`typescript-lsp` 另需 `npm install -g typescript-language-server typescript`。
-
-### 倉庫結構
-
-```
-claude/CLAUDE.md             Claude Code router      → ~/.claude/CLAUDE.md
-claude/statusline.sh         狀態列                   → ~/.claude/statusline.sh
-claude/hooks/                guard-delete.sh、ai-global-check.sh、cleanup-orphans.{sh,ps1} → ~/.claude/hooks/
-claude/skills/ai-global/     /ai-global skill         → ~/.claude/skills/ai-global/
-codex/AGENTS.md              Codex router             → ~/.codex/AGENTS.md
-governance/                  憲法（README.md 是索引，USER-GUIDE.md 給使用者）→ ~/.ai-global/governance/
-manifest/                    skills.json（第三方清單）、settings.json（共用設定）、sources.json（evolve 核對來源）
-docs/CHANGELOG.md            兩個 router 的變更紀錄（不放在 router 本體）
-docs/reference/              agent-runtime.md（工具機制）、governance-evaluation.md（驗收情境）
-docs/reports/                evolve 產出的報告
-setup/                       align.py、deploy.py、capabilities.py、govcheck.py 及各自的 test_*.py
-```
 
 `~/.ai-global/` 頂層只會有 `governance/` 和 `.deploy-state.json`，其他一律當舊版殘留收進 trash。`~/.claude/skills|commands|agents` 只動 repo 自己的項目，第三方的不碰。
 
