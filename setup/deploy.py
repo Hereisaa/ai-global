@@ -84,17 +84,22 @@ def read_state(path):
                to update); anything else -> EDITED (needs a human).
       managed  repo-relative paths of the item-level deploys (skills, commands,
                agents). An item the repo no longer has must be removed.
-      commit   informational only."""
+      commit   informational only.
+    Returns commit, managed paths, file hashes and allowlisted provenance."""
     try:
         state = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     except (OSError, ValueError):
-        return "", [], {}
+        return "", [], {}, {}
     if not isinstance(state, dict):
-        return "", [], {}
+        return "", [], {}, {}
     commit = state.get("commit") if isinstance(state.get("commit"), str) else ""
     managed = [m for m in state.get("managed", []) if isinstance(m, str) and m.startswith("claude/")] if isinstance(state.get("managed"), list) else []
     files = {k: v for k, v in state.get("files", {}).items() if isinstance(k, str) and isinstance(v, str)} if isinstance(state.get("files"), dict) else {}
-    return commit, managed, files
+    provenance = {key: state[key] for key in ("source_repo", "branch", "deployed_at")
+                  if isinstance(state.get(key), str)}
+    if type(state.get("source_dirty")) is bool:
+        provenance["source_dirty"] = state["source_dirty"]
+    return commit, managed, files, provenance
 
 
 class Deployer:
@@ -112,7 +117,7 @@ class Deployer:
         self.state_path = self.global_dir / ".deploy-state.json"
         stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         self.trash = self.home / ".ai-trash" / f"ai-global-deploy-{stamp}-{uuid.uuid4().hex}"
-        self.prev_commit, self.prev_managed, self.prev_files = read_state(self.state_path)
+        self.prev_commit, self.prev_managed, self.prev_files, self.prev_provenance = read_state(self.state_path)
         self.managed = []
         self.files = {}
         self.results = []
@@ -290,6 +295,7 @@ class Deployer:
                 self.extra(dst, "no longer in repo")
 
         head = git_output(repo, "rev-parse", "HEAD") or "unknown"
+        branch = git_output(repo, "rev-parse", "--abbrev-ref", "HEAD") or "unknown"
         if self.mode == "check":
             self.echo("")
             if not self.prev_commit:
@@ -301,13 +307,20 @@ class Deployer:
             if self.fail:
                 self.echo(f"out of sync - run: python {repo / 'setup' / 'deploy.py'}")
             else:
-                self.echo("global deployment is in sync")
+                self.echo("CONTENT deployed files match this clone")
+            source_branch = self.prev_provenance.get("branch", "unknown")
+            self.echo(f"SOURCE  recorded deployment: {source_branch}@{self.prev_commit[:9] or 'unknown'}; checked clone: {branch}@{head[:9]}")
+            if self.prev_provenance.get("source_dirty"):
+                self.echo("SOURCE  deployment included uncommitted changes; commit alone does not identify its contents")
+            self.echo("HOOKS   not checked here; use align --plan to inspect recommended hook configuration")
+            self.echo("RUNTIME current session loading and actual protection are not verified")
+            self.echo("REMOTE  not checked; another machine's synchronization is not verified")
             return self.summary(head)
 
-        branch = git_output(repo, "rev-parse", "--abbrev-ref", "HEAD") or "unknown"
         state = {"source_repo": str(repo), "commit": head, "branch": branch,
                  "deployed_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                 "platform": platform_name(), "managed": self.managed, "files": self.files}
+                 "platform": platform_name(), "managed": self.managed, "files": self.files,
+                 "source_dirty": bool(git_output(repo, "status", "--porcelain"))}
         self.global_dir.mkdir(parents=True, exist_ok=True)
         with open(self.state_path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(json.dumps(state, indent=2, ensure_ascii=False) + "\n")
@@ -347,7 +360,12 @@ class Deployer:
     def summary(self, head):
         return {"results": self.results, "state_path": self.state_path,
                 "trash": self.trash if self.trash.exists() else None,
-                "ok": not self.fail, "mode": self.mode, "commit": head}
+                "ok": not self.fail, "mode": self.mode, "commit": head,
+                "verification": {"content_matches": not self.fail if self.mode == "check" else None,
+                                 "deployment_commit": self.prev_commit if self.mode == "check" else head,
+                                 "deployment_source": self.prev_provenance if self.mode == "check" else None,
+                                 "hooks": "not_checked", "runtime": "not_verified",
+                                 "remote": "not_checked"}}
 
 
 def run(repo, home, mode="install", echo=print, keep_edited=()):

@@ -3,6 +3,7 @@
 兩個 router（`claude/CLAUDE.md`、`codex/AGENTS.md`）的變更紀錄集中在這裡，不放在 router 本體，避免每個 session 都載入歷史。制度檔（`governance/*.md`）的變更紀錄仍在各檔末尾。精確 diff 一律查 Git。
 
 ## claude/CLAUDE.md
+- 2026-10-02 精簡日常入口；機器與維護背景移到按需參考，保留授權與安全紅線、工具分支前綴與制度路由；70契約細節改為按需讀取（Codex，使用者授權）。
 - 2026-07-31 新增「多 session 並行」節（Opus 5）
 - 2026-08-16 新增「工程開發與輸出格式」節（完整版在 `80-engineering.md`）；制度目錄精簡，00/90/REPORT 歸檔（Fable 5，應使用者要求）
 - 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）
@@ -21,6 +22,7 @@
 - 2026-09-15 變更紀錄搬到 `docs/CHANGELOG.md`；同步節加入 SessionStart 漂移檢查 hook；安全紅線加入 PreToolUse 擋刪除 hook；全檔精簡回 60 行預算內（Fable 5.1，使用者授權）
 
 ## codex/AGENTS.md
+- 2026-10-02 精簡日常入口；機器與維護背景移到按需參考，保留授權與安全紅線、工具分支前綴與制度路由；70契約細節改為按需讀取（Codex，使用者授權）。
 - 2026-08-16 新增「工程開發與輸出格式」節，完整版在 `80-engineering.md`（Fable 5，應使用者要求）
 - 2026-08-17 環境節改為雙機描述（macOS 主力＋Windows 副機，正本在 ai-global repo）（Fable 5）
 - 2026-09-07 制度路徑改為 `~/.ai-global/governance/`；部署改為實體檔案複製（不再用 symlink）；環境節改為雙機表格並修正 Windows 專案根目錄為 `D:\GitHub\`；新增「全域設定要改／要同步時」節（Opus 5，應使用者要求）

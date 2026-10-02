@@ -126,7 +126,9 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 python setup/deploy.py [install | check]
 ```
 
-`install`（預設）複製 router、憲法、hooks、statusline、skill 到位並記錄狀態；`check` 只報漂移。狀態：`OK`、`MISSING` 還沒部署、`BEHIND` repo 有新版、`EDITED` 部署端被改過、`EXTRA` repo 已移除但本機還在、`STALE` 舊版斷鏈。
+`install`（預設）複製 router、憲法、hooks、statusline、skill 到位並記錄狀態；`check` 只報漂移。檢查分開列出 `CONTENT`（部署檔案內容）、`SOURCE`（記錄的部署分支與 commit）、`HOOKS`（此命令不檢查掛載）、`RUNTIME`（未驗證當次載入與防護）、`REMOTE`（此命令不比對遠端或另一台）。內容一致時即使來源 commit 不同仍可 exit 0；這個成功碼只表示部署檔案比對通過。若部署時有未提交變更，state 會記 `source_dirty`，commit 不能單獨代表其內容。
+
+狀態：`OK`、`MISSING` 還沒部署、`BEHIND` repo 有新版、`EDITED` 部署端被改過、`EXTRA` repo 已移除但本機還在、`STALE` 舊版斷鏈。
 
 ### `capabilities.py`
 
@@ -157,6 +159,10 @@ python setup/govcheck.py [--local]
 ```
 
 檢查兩個 router 節次對齊、沒互抄對方的前綴、路由與連結有效、manifest 格式、`sources.json` 有沒有超過 45 天沒核對。`--local` 多對帳本機部署副本。CI 在 push／PR 時於三個 OS 跑。
+
+### 模型行為評測（eval）
+
+規則是否讓AI更可靠、更少停頓，須用真實任務比較；腳本測試不代表模型通過。[方法與首輪規格](docs/reference/harness-eval-method.md) 包含八題、兩版本比較、分層評分與隔離要求；目前是方法設計，尚未啟動模型行為測試。
 
 ### 測試
 

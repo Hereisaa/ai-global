@@ -14,7 +14,7 @@
 | [40-maintenance.md](40-maintenance.md) | 修改制度、全域指令及維護回復方式 |
 | [50-safety.md](50-safety.md) | 安全規範的唯一責任檔 |
 | [60-project-bootstrap.md](60-project-bootstrap.md) | 新專案配置、CI 與文件存放命名 |
-| [70-behavior-contract.md](70-behavior-contract.md) | 工作與溝通方式；首個實質任務前讀取 |
+| [70-behavior-contract.md](70-behavior-contract.md) | 工作與溝通方式；需要契約細節時讀取 |
 | [80-engineering.md](80-engineering.md) | 工程設計、程式碼變更與交付格式 |
 | [USER-GUIDE.md](USER-GUIDE.md) | 給使用者的日常操作、驗證與狀態判讀 |
 | [agent-runtime.md](../docs/reference/agent-runtime.md) | 官方工具載入與權限機制、平台維護參考 |
@@ -31,3 +31,4 @@
 - 2026-09-14 外部參考按需從 source_repo 解析，避免部署端斷鏈與無關讀取（Codex，使用者授權）。
 - 2026-09-14 移除 `backups/` 目錄，歷史改查 Git；新增 `/ai-global evolve`（Opus 5，使用者授權）
 - 2026-09-15 標題去掉舊 repo 名 agent-governance（Fable 5.1，使用者授權）
+- 2026-10-02 工作契約改為按需查閱，與兩工具入口一致。

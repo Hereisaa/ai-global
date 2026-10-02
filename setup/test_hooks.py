@@ -176,7 +176,18 @@ function wsl { $global:LASTEXITCODE = 0; if ($env:HOOK_TEST_FAILURE -eq 'wsl') {
         self.assertIn("一致", result.stdout)
         self.assertNotIn("不同步", result.stdout)
         self.assertIn("沒有 upstream", result.stdout)
-        self.assertIn("部署自分支", result.stdout)  # fixture is on the default branch, not main
+        self.assertIn("比對的 clone 位於分支", result.stdout)  # fixture is on the default branch, not main
+        state_path = home / ".ai-global/.deploy-state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["branch"] = "codex/previous-deployment"
+        state["commit"] = "a" * 40
+        state_path.write_text(json.dumps(state), encoding="utf-8")
+        result = hook()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("比對 clone：", result.stdout)
+        self.assertNotIn("部署自分支", result.stdout)
+        self.assertNotIn("previous-deployment", result.stdout)
+        self.assertIn("未驗證當次規則載入與防護生效", result.stdout)
 
         (repo / "governance/20-judgment.md").write_text("# newer\n", encoding="utf-8")
         result = hook()

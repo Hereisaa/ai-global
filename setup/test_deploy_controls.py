@@ -80,7 +80,7 @@ class DeployControlTests(unittest.TestCase):
         self.assertEqual(self.statuses(check) - {"OK", "SKIP", "DISABLED"}, set())
         completed = cli(repo, home, "check")
         self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("global deployment is in sync", completed.stdout)
+        self.assertIn("CONTENT deployed files match this clone", completed.stdout)
 
     def test_check_reports_behind_edited_extra_and_install_repairs(self):
         repo, home = fixture()
@@ -157,6 +157,50 @@ class DeployControlTests(unittest.TestCase):
         self.assertEqual(completed.returncode, 1)
         self.assertIn("STATE   never deployed on this machine", completed.stdout)
         self.assertIn("MISSING", completed.stdout)
+
+    def test_matching_content_does_not_claim_runtime_or_remote_verification(self):
+        repo, home = fixture()
+        installed = deploy.run(repo, home, "install", echo=lambda _: None)
+        state = json.loads(installed["state_path"].read_text(encoding="utf-8"))
+        state["commit"] = "a" * 40
+        state["branch"] = "codex/previous"
+        state["source_dirty"] = True
+        installed["state_path"].write_text(json.dumps(state), encoding="utf-8")
+        lines = []
+        checked = deploy.run(repo, home, "check", echo=lines.append)
+        self.assertTrue(checked["ok"])
+        self.assertTrue(checked["verification"]["content_matches"])
+        self.assertEqual(checked["verification"]["deployment_commit"], "a" * 40)
+        self.assertEqual(checked["verification"]["runtime"], "not_verified")
+        self.assertEqual(checked["verification"]["remote"], "not_checked")
+        self.assertIn("codex/previous@aaaaaaaaa", "\n".join(lines))
+        self.assertIn("uncommitted changes", "\n".join(lines))
+        self.assertTrue(any(line.startswith("HOOKS   not checked") for line in lines))
+
+    def test_malformed_state_does_not_turn_matching_files_into_a_runtime_pass(self):
+        repo, home = fixture()
+        installed = deploy.run(repo, home, "install", echo=lambda _: None)
+        for raw in ("not JSON", "[]", '{"commit": [], "managed": {}, "files": [], "branch": 7, "source_dirty": "yes"}'):
+            installed["state_path"].write_text(raw, encoding="utf-8")
+            checked = deploy.run(repo, home, "check", echo=lambda _: None)
+            self.assertTrue(checked["ok"])
+            self.assertEqual(checked["verification"]["deployment_commit"], "")
+            self.assertEqual(checked["verification"]["deployment_source"], {})
+            self.assertEqual(checked["verification"]["runtime"], "not_verified")
+            self.assertEqual(installed["state_path"].read_text(encoding="utf-8"), raw)
+
+    def test_legacy_state_has_unknown_provenance_without_failing_content_check(self):
+        repo, home = fixture()
+        installed = deploy.run(repo, home, "install", echo=lambda _: None)
+        state = json.loads(installed["state_path"].read_text(encoding="utf-8"))
+        for key in ("source_repo", "branch", "deployed_at", "source_dirty"):
+            state.pop(key, None)
+        installed["state_path"].write_text(json.dumps(state), encoding="utf-8")
+        lines = []
+        checked = deploy.run(repo, home, "check", echo=lines.append)
+        self.assertTrue(checked["ok"])
+        self.assertEqual(checked["verification"]["deployment_source"], {})
+        self.assertIn("recorded deployment: unknown@", "\n".join(lines))
 
     def test_desktop_metadata_is_never_deployed_nor_reported(self):
         repo, home = fixture()

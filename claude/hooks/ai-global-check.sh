@@ -52,14 +52,14 @@ elif [ "$branch" != "unknown" ]; then
   remote_note=" 分支沒有 upstream，未比對 remote；"
 fi
 if [ "$branch" != "main" ] && [ "$branch" != "unknown" ]; then
-  remote_note="$remote_note 部署自分支 ${branch}（尚未在 main）；"
+  remote_note="$remote_note 比對的 clone 位於分支 ${branch}（未檢查是否已合併 main）；"
 fi
 
 if [ "$rc" -eq 0 ]; then
   if [ -n "$remote_note" ]; then
-    echo "ai-global: 部署端與 clone 一致（$branch@${head}），但：${remote_note}"
+    echo "ai-global: 部署檔案與 clone 一致（比對 clone：$branch@${head}），但：${remote_note} 未驗證當次規則載入與防護生效。"
   else
-    echo "ai-global: 全域設定與 clone 同步（main@${head}，與 remote 一致）。"
+    echo "ai-global: 部署檔案與 clone 一致（比對 clone：main@${head}，已比對 remote）；未驗證當次規則載入與防護生效。"
   fi
   exit 0
 fi
