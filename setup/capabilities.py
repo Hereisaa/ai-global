@@ -17,6 +17,9 @@ import unicodedata
 import uuid
 
 
+GROUPS = ("core", "frontend", "typescript", "research", "maintenance")
+
+
 class ControlError(Exception):
     pass
 
@@ -54,6 +57,8 @@ def defaults(repo):
                 or not isinstance(key[2], str) or not key[2] or type(item.get("default_enabled")) is not bool
                 or key in result):
             raise ControlError("manifest 能力識別碼、預設值無效或重複")
+        if item.get("group", "core") not in GROUPS:
+            raise ControlError("manifest 能力分組無效")
         result[key] = item
     return result
 
@@ -131,6 +136,7 @@ def inventory(repo, home, cli_plugins=None, codex_cli="auto"):
         records[key] = {"tool": tool, "kind": kind, "id": identifier,
                         "origin": "project-default" if default else "local-existing",
                         "default_enabled": default["default_enabled"] if default else None,
+                        "group": default.get("group", "core") if default else "local",
                         "installed": installed, "enabled": enabled, "version": version,
                         "path": str(path) if path else None, "note": note}
 
@@ -351,8 +357,8 @@ def table(header, rows, indent=""):
 
 def capability_table(rows):
     label = lambda value: "未知" if value is None else ("是" if value else "否")
-    return table(["工具", "種類", "ID", "來源", "專案預設", "安裝", "本機開關"],
-                 [[row["tool"], row["kind"], row["id"],
+    return table(["工具", "種類", "ID", "分組", "來源", "預設補裝", "安裝", "本機開關"],
+                 [[row["tool"], row["kind"], row["id"], row.get("group", "local"),
                    "專案預設" if row["origin"] == "project-default" else "本機既有",
                    label(row["default_enabled"]), label(row["installed"]), label(row["enabled"])]
                   for row in rows])
@@ -364,15 +370,24 @@ def main(argv=None):
     parser.add_argument("--repo", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--home", type=Path, default=Path.home(), help="僅隔離測試或指定使用者目錄")
     parser.add_argument("--tool", choices=("claude", "codex"))
+    parser.add_argument("--group", choices=(*GROUPS, "local"), help="list/manage 依用途篩選；不改本機開關")
     parser.add_argument("--kind", choices=("skill", "plugin", "command"))
     parser.add_argument("--id")
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--demo", action="store_true", help="manage 示範模式，不讀寫本機能力設定")
     args = parser.parse_args(argv)
+    if args.group and args.action not in ("list", "manage"):
+        parser.error("--group 僅用於 list/manage")
     if args.demo and args.action != "manage":
         parser.error("--demo 僅用於 manage")
     if args.json and args.action != "list":
         parser.error("--json 僅用於 list")
+    def filtered(rows):
+        return [r for r in rows if (not args.tool or r["tool"] == args.tool)
+                and (not args.kind or r["kind"] == args.kind)
+                and (not args.id or r["id"] == args.id)
+                and (not args.group or r.get("group", "local") == args.group)]
+
     try:
         if args.action == "manage":
             if not sys.stdin.isatty() or not sys.stdout.isatty():
@@ -383,8 +398,8 @@ def main(argv=None):
                 raise ControlError("互動模式需要 prompt_toolkit：請用目前 Python 執行 python -m pip install -r setup/requirements-tui.txt，或使用專案 .venv。") from None
             cli = None if args.demo else claude_cli_plugins(args.home)
             rows = demo_rows() if args.demo else inventory(args.repo, args.home, cli)
-            rows = [r for r in rows if (not args.tool or r["tool"] == args.tool) and (not args.kind or r["kind"] == args.kind) and (not args.id or r["id"] == args.id)]
-            return manage(rows, capability_table, lambda: inventory(args.repo, args.home, claude_cli_plugins(args.home)),
+            rows = filtered(rows)
+            return manage(rows, capability_table, lambda: filtered(inventory(args.repo, args.home, claude_cli_plugins(args.home))),
                           lambda tool, kind, identifier, enabled: toggle(args.repo, args.home, tool, kind, identifier, enabled), demo=args.demo)
         elif args.action != "list":
             if not all((args.tool, args.kind, args.id)):
@@ -392,7 +407,7 @@ def main(argv=None):
             print(toggle(args.repo, args.home, args.tool, args.kind, args.id, args.action == "enable"))
         else:
             rows = inventory(args.repo, args.home, claude_cli_plugins(args.home))
-            rows = [r for r in rows if (not args.tool or r["tool"] == args.tool) and (not args.kind or r["kind"] == args.kind) and (not args.id or r["id"] == args.id)]
+            rows = filtered(rows)
             if args.json:
                 print(json.dumps(rows, ensure_ascii=False, indent=2))
             else:

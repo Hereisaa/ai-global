@@ -28,8 +28,8 @@ python3 setup/govcheck.py --local
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 ```
 
-- `--local` 已包含離線檢查，同一版本不重跑兩者；只需 repo 檢查時省略 `--local`。離線檢查驗證兩個入口的節次對齊與各自的工具專屬前綴、制度路由及現行相對連結；`--local` 額外核對本機副本內容與支援的設定欄位。WARN 需說明，FAIL 需修正；未涵蓋項目不能宣稱通過。
-- 外部變化（模型、工具、marketplace 改版）的核對走 `/ai-global evolve`：只產 `docs/reports/harness-review-<日期>.md` 與更新核對日期；`manifest/sources.json` 的 `last_checked` 超過 `stale_days` 時 checker 提醒。報告經使用者裁決後才進入本檔的修改流程。
+- `--local` 已包含離線檢查，同一版本不重跑兩者；只需 repo 檢查時省略 `--local`。離線檢查提示兩個入口的結構差異，驗證各自的工具專屬前綴、制度路由及現行相對連結；`--local` 額外核對本機副本內容與支援的設定欄位。WARN 需說明，FAIL 需修正；未涵蓋項目不能宣稱通過。
+- 外部變化（模型、工具、marketplace 改版）的核對走 `/ai-global evolve`：只產 `docs/reports/harness-review-<日期>.md` 與更新核對日期；`manifest/sources.json` 的 `last_checked` 超過 `stale_days` 時 checker 只列資訊；工具升級、能力異常或需求改變才核對相關來源。報告經使用者裁決後才進入本檔的修改流程。
 - 工具檢查不證明模型會遵守文字。治理改版另依 [治理驗收情境](../docs/reference/governance-evaluation.md) 做獨立讀回；各平台新對話實測才是行為測試，不能用讀回替代。
 - router 以 60 行、單份制度以 300 行為維護預算，超過時檢查是否重複或可按需載入；這不是模型能力的硬上限。
 - 保留既有變更紀錄，本次規則變動加一筆日期與摘要：制度檔寫在各檔末尾，兩個 router 的紀錄集中在 [docs/CHANGELOG.md](../docs/CHANGELOG.md)（router 每個 session 都會載入，不放歷史）。精確 diff 與回復依 Git；乾淨且已追蹤的檔案不用每次另製完整備份。
@@ -57,3 +57,5 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s setup -p 'test_*.py'
 - 2026-09-14 移除 repo 內 `governance/backups/`（備份一律 repo 外、歷史查 Git）；新增 evolve 核對流程與 sources 過期提醒（Opus 5，使用者授權）。
 - 2026-09-14 部署與對齊改為 Python 腳本（deploy.py／align.py／installers.py），install.sh／ps1 退役；EDITED 由使用者在 align 中裁決（Opus 5，使用者授權）。
 - 2026-09-15 router 變更紀錄移到 `docs/CHANGELOG.md`；新增 SessionStart 漂移檢查與 PreToolUse 擋刪除兩支 hook（掛載仍由各機 settings.json 決定）（Fable 5.1，使用者授權）
+
+- 2026-10-02 入口結構差異改為提示，工具前綴與路由仍需有效（Codex，使用者授權全面優化）。

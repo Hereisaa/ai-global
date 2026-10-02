@@ -89,6 +89,23 @@ class AlignTests(unittest.TestCase):
         # The git-backed skill could not be fetched (fake CLI clones nothing): a failure, not a crash.
         self.assertTrue(any("SKILL.md" in f for f in summary["failures"]))
 
+    def test_optional_install_requires_explicit_selection(self):
+        path = self.repo / "manifest/skills.json"
+        data = json.loads(path.read_text())
+        for item in data["items"]:
+            if item["id"] != "ai-global":
+                item["default_enabled"] = False
+                item["group"] = "frontend"
+        path.write_text(json.dumps(data))
+        summary = self.run_align(yes=True)
+        self.assertEqual(self.cli_calls, [])
+        self.assertEqual(summary["missing"], ["ai-global"])
+        self.assertIn("wanted@m", summary["optional_missing"])
+        summary = self.run_align(yes=True, only=["wanted@m"])
+        self.assertIn(["claude", "plugin", "install", "wanted@m"], self.cli_calls)
+        self.assertNotIn("wanted@m", summary["optional_missing"])
+        self.assertEqual(summary["failures"], [])
+
     def test_edited_keep_and_writeback_are_honoured_before_deploy(self):
         self.run_align(yes=True)  # first deploy
         rule = self.home / ".ai-global/governance/20-judgment.md"
@@ -108,9 +125,9 @@ class AlignTests(unittest.TestCase):
         self.assertEqual(rule.read_text(encoding="utf-8"), "# rule v3\n")
         self.assertTrue(any(p.read_text(encoding="utf-8") == "# local edit\n" for p in (self.home / ".ai-trash").rglob("20-judgment.md")))
 
-    def test_extra_duplicate_switch_and_hook_actions(self):
+    def test_conflict_actions_preserve_local_disabled_choice(self):
         self.run_align(yes=True)
-        # extra -> trash; duplicate (skill bundled in enabled plugin) -> trash; switch -> enable; hook -> unwire
+        # extra -> trash; duplicate (skill bundled in enabled plugin) -> trash; local switch stays disabled; hook -> unwire
         (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)
         (self.home / ".claude/skills/stray/SKILL.md").write_text("# stray")
         bundled = self.home / ".claude/plugins/cache/m/wanted/1.0.0/skills/dupe"
@@ -131,18 +148,18 @@ class AlignTests(unittest.TestCase):
         parked.write_text("# parked")
         summary = self.run_align(yes=True)
         kinds = sorted(c["kind"] for c in summary["conflicts"])
-        self.assertEqual(kinds, ["duplicate", "extra", "hook", "switch"])
+        self.assertEqual(kinds, ["duplicate", "extra", "hook"])
         summary = self.run_align(yes=True, resolve={
             "claude:skill:stray": "trash", "claude:skill:dupe": "trash",
-            "claude:skill:parked": "enable", "hook:Stop:bash ~/.claude/hooks/gone.sh": "unwire"})
+            "hook:Stop:bash ~/.claude/hooks/gone.sh": "unwire"})
         self.assertEqual(summary["unresolved"], [])
         self.assertEqual(summary["failures"], [])
         self.assertFalse((self.home / ".claude/skills/stray").exists())
         self.assertFalse((self.home / ".claude/skills/dupe").exists())
         self.assertTrue((self.home / ".ai-trash").rglob("stray"))
         after = cap.read_json(self.home / ".claude/settings.json")
-        self.assertTrue((self.home / ".claude/skills/parked/SKILL.md").is_file())
-        self.assertFalse(parked.exists())
+        self.assertFalse((self.home / ".claude/skills/parked/SKILL.md").exists())
+        self.assertEqual(parked.read_text(), "# parked")
         self.assertNotIn("Stop", after.get("hooks", {}))
         self.assertTrue(any(p.name == "settings.json.before-unwire" for p in (self.home / ".ai-trash").rglob("*")))
 
@@ -187,6 +204,23 @@ class AlignTests(unittest.TestCase):
         self.assertIn(["claude", "plugin", "update", "wanted@m"], self.cli_calls)  # install is a no-op when installed
         self.assertLess(self.cli_calls.index(["claude", "plugin", "marketplace", "update", "m"]),
                         self.cli_calls.index(["claude", "plugin", "update", "wanted@m"]))
+
+    def test_disabled_plugin_versions_are_ignored_and_codex_version_is_independent(self):
+        self.run_align(yes=True)
+        manifest_path = self.repo / "manifest/skills.json"
+        data = json.loads(manifest_path.read_text())
+        data["items"][1]["version"] = "2.0.0"
+        data["items"].append({"tool": "codex", "type": "plugin", "id": "codex-only@m",
+                              "default_enabled": False, "version": "2.0.0"})
+        manifest_path.write_text(json.dumps(data))
+        (self.home / ".claude/settings.json").write_text(json.dumps({"enabledPlugins": {"wanted@m": False}}))
+        (self.home / ".codex").mkdir(exist_ok=True)
+        (self.home / ".codex/config.toml").write_text('[plugins."codex-only@m"]\nenabled = true\n')
+        self.codex_cli = {"codex-only@m": (True, "1.0.0")}
+        summary = self.run_align(plan=True)
+        versions = [c for c in summary["conflicts"] if c["kind"] == "version"]
+        self.assertEqual([c["key"] for c in versions], ["codex:plugin:codex-only@m"])
+        self.assertIn("本機 1.0.0", versions[0]["detail"])
 
     def test_unknown_action_is_reported(self):
         (self.home / ".claude/skills/stray/SKILL.md").parent.mkdir(parents=True)

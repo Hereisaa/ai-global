@@ -1,5 +1,5 @@
 {
-  "_readme": "專案預設能力與建議開關；不覆蓋本機選擇、不自動安裝。tool/type/id 為唯一識別，default_enabled 是建議值。第三方 version 未列者不保證版本可重現。收錄準則：只收模型本身沒有的東西（專案路由、即時文件、真實工具、隨附資料、harness 強制），不收教方法論的流程模板；觸發詞重疊的能力只留一個。 欄位：source（repo:／marketplace <name>／marketplace github:owner/repo／github:owner/repo）、path、ref、version、requires（PATH 上必須有的指令）、requires_hint。",
+  "_readme": "基本能力與選配目錄；group 分 core/frontend/typescript/research/maintenance。default_enabled=true 才在一般 align 自動補裝缺項；false 只在明確 --only 時補裝。不重設本機開關。只收實際工具、資料或明確專案用途，通用方法論不常駐。第三方 version 未列者不保證版本可重現。",
   "items": [
     {
       "name": "ai-global",
@@ -7,7 +7,8 @@
       "tool": "claude",
       "id": "ai-global",
       "default_enabled": true,
-      "source": "repo:claude/skills/ai-global"
+      "source": "repo:claude/skills/ai-global",
+      "group": "core"
     },
     {
       "name": "kb-retriever",
@@ -16,9 +17,10 @@
       "version": "1.0.1",
       "tool": "claude",
       "id": "kb-retriever",
-      "default_enabled": true,
+      "default_enabled": false,
       "note": "local knowledge-base retrieval with PDF/Excel handling; used by knowledge-vault",
-      "path": "skills/kb-retriever"
+      "path": "skills/kb-retriever",
+      "group": "research"
     },
     {
       "name": "web-design-guidelines",
@@ -27,8 +29,9 @@
       "path": "skills/web-design-guidelines",
       "tool": "claude",
       "id": "web-design-guidelines",
-      "default_enabled": true,
-      "note": "Vercel official; fetches latest Web Interface Guidelines at review time. Replaces the static web-interface-guidelines command (removed 2026-09-14)."
+      "default_enabled": false,
+      "note": "Vercel official; fetches latest Web Interface Guidelines at review time. Replaces the static web-interface-guidelines command (removed 2026-09-14).",
+      "group": "frontend"
     },
     {
       "name": "frontend-design",
@@ -36,8 +39,9 @@
       "source": "marketplace claude-plugins-official",
       "tool": "claude",
       "id": "frontend-design@claude-plugins-official",
-      "default_enabled": true,
-      "note": "CLI counterpart of the desktop built-in anthropic-skills:frontend-design; UI flow = frontend-design produces -> ui-ux-pro-max styles -> web-design-guidelines reviews"
+      "default_enabled": false,
+      "note": "CLI counterpart of the desktop built-in anthropic-skills:frontend-design; UI flow = frontend-design produces -> ui-ux-pro-max styles -> web-design-guidelines reviews",
+      "group": "frontend"
     },
     {
       "name": "ui-ux-pro-max",
@@ -46,8 +50,9 @@
       "version": "2.13.0",
       "tool": "claude",
       "id": "ui-ux-pro-max@ui-ux-pro-max-skill",
-      "default_enabled": true,
-      "note": "bundles searchable CSV data (palettes/fonts/UX rules) and its own ui-styling skill; do not install a standalone ui-styling"
+      "default_enabled": false,
+      "note": "bundles searchable CSV data (palettes/fonts/UX rules) and its own ui-styling skill; do not install a standalone ui-styling",
+      "group": "frontend"
     },
     {
       "name": "gsap-skills",
@@ -58,7 +63,8 @@
       "version": "1.0.0",
       "tool": "claude",
       "id": "gsap-skills@gsap-skills",
-      "default_enabled": true
+      "default_enabled": false,
+      "group": "frontend"
     },
     {
       "name": "typescript-lsp",
@@ -66,12 +72,13 @@
       "source": "marketplace claude-plugins-official",
       "tool": "claude",
       "id": "typescript-lsp@claude-plugins-official",
-      "default_enabled": true,
+      "default_enabled": false,
       "note": "real type/reference queries for TS projects",
       "requires": [
         "typescript-language-server"
       ],
-      "requires_hint": "npm install -g typescript-language-server typescript"
+      "requires_hint": "npm install -g typescript-language-server typescript",
+      "group": "typescript"
     },
     {
       "name": "context7",
@@ -80,7 +87,8 @@
       "tool": "claude",
       "id": "context7@claude-plugins-official",
       "default_enabled": true,
-      "note": "up-to-date library docs lookup (MCP); covers APIs newer than the model cutoff"
+      "note": "up-to-date library docs lookup (MCP); covers APIs newer than the model cutoff",
+      "group": "core"
     },
     {
       "name": "hookify",
@@ -88,8 +96,9 @@
       "source": "marketplace claude-plugins-official",
       "tool": "claude",
       "id": "hookify@claude-plugins-official",
-      "default_enabled": true,
-      "note": "turn hard constraints (50-safety red lines) into enforced hooks instead of prose"
+      "default_enabled": false,
+      "note": "turn hard constraints (50-safety red lines) into enforced hooks instead of prose",
+      "group": "maintenance"
     },
     {
       "name": "claude-md-management",
@@ -97,8 +106,9 @@
       "source": "marketplace claude-plugins-official",
       "tool": "claude",
       "id": "claude-md-management@claude-plugins-official",
-      "default_enabled": true,
-      "note": "audit CLAUDE.md quality and capture session learnings; supports 40-maintenance"
+      "default_enabled": false,
+      "note": "audit CLAUDE.md quality and capture session learnings; supports 40-maintenance",
+      "group": "maintenance"
     },
     {
       "name": "kb-retriever",
@@ -107,9 +117,10 @@
       "version": "1.0.1",
       "tool": "codex",
       "id": ".codex/skills/kb-retriever",
-      "default_enabled": true,
+      "default_enabled": false,
       "note": "same content as the claude entry",
-      "path": "skills/kb-retriever"
+      "path": "skills/kb-retriever",
+      "group": "research"
     },
     {
       "name": "web-design-guidelines",
@@ -118,8 +129,9 @@
       "path": "skills/web-design-guidelines",
       "tool": "codex",
       "id": ".codex/skills/web-design-guidelines",
-      "default_enabled": true,
-      "note": "same content as the claude entry"
+      "default_enabled": false,
+      "note": "same content as the claude entry",
+      "group": "frontend"
     },
     {
       "name": "frontend-design",
@@ -127,8 +139,9 @@
       "source": "marketplace github:anthropics/claude-plugins-official",
       "tool": "codex",
       "id": "frontend-design@claude-plugins-official",
-      "default_enabled": true,
-      "note": "Codex reads Claude marketplace format but does not ship this marketplace; github: source makes align register it (codex plugin marketplace add owner/repo) before codex plugin add"
+      "default_enabled": false,
+      "note": "Codex reads Claude marketplace format but does not ship this marketplace; github: source makes align register it (codex plugin marketplace add owner/repo) before codex plugin add",
+      "group": "frontend"
     },
     {
       "name": "ui-ux-pro-max",
@@ -137,8 +150,9 @@
       "version": "2.13.0",
       "tool": "codex",
       "id": "ui-ux-pro-max@ui-ux-pro-max-skill",
-      "default_enabled": true,
-      "note": "codex plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill first"
+      "default_enabled": false,
+      "note": "codex plugin marketplace add nextlevelbuilder/ui-ux-pro-max-skill first",
+      "group": "frontend"
     },
     {
       "name": "gsap-skills",
@@ -147,8 +161,9 @@
       "version": "1.0.0",
       "tool": "codex",
       "id": "gsap-skills@gsap-skills",
-      "default_enabled": true,
-      "note": "codex plugin marketplace add greensock/gsap-skills first"
+      "default_enabled": false,
+      "note": "codex plugin marketplace add greensock/gsap-skills first",
+      "group": "frontend"
     },
     {
       "name": "context7",
@@ -157,7 +172,8 @@
       "tool": "codex",
       "id": "context7@claude-plugins-official",
       "default_enabled": true,
-      "note": "Codex loads the plugin's .mcp.json into mcp_servers (verified 2026-09-14 with codex mcp list)"
+      "note": "Codex loads the plugin's .mcp.json into mcp_servers (verified 2026-09-14 with codex mcp list)",
+      "group": "core"
     }
   ]
 }

@@ -36,8 +36,6 @@ KEEP = "keep"
 CONFLICT_ACTIONS = {
     # deployed file changed outside the repo
     "edited":    (("overwrite", "以 repo 覆蓋"), ("writeback", "回寫 repo"), (KEEP, "保留兩邊，下次再問")),
-    # local switch contradicts the manifest recommendation
-    "switch":    (("enable", "開啟"), ("disable", "關閉"), (KEEP, "維持本機選擇")),
     # installed locally but not in the manifest
     "extra":     ((KEEP, "保留"), ("disable", "停用"), ("trash", "移到 trash")),
     # a standalone skill with the same name as one bundled in an enabled plugin
@@ -321,15 +319,12 @@ def find_conflicts(repo, home, deploy_results, rows):
             continue
         if row["installed"] is False:
             continue  # handled by the automatic install step
-        if isinstance(row["enabled"], bool) and row["enabled"] != item["default_enabled"]:
-            wanted_label = "開啟" if item["default_enabled"] else "關閉"
-            conflicts.append(conflict("switch", key, f"開關與 manifest 建議相反：{row['id']}",
-                                      f"manifest 建議{wanted_label}，本機目前{'開啟' if row['enabled'] else '關閉'}。", default=KEEP))
+        # Local switches are deliberate choices, not synchronization conflicts.
         # Claude: version from its install registry; Codex: from `codex plugin list` (None when unversioned).
         local = versions.get(row["id"]) if row["tool"] == "claude" else row.get("version")
-        if row["kind"] == "plugin" and item.get("version") and local and local != item["version"]:
+        if row["enabled"] is not False and row["kind"] == "plugin" and item.get("version") and local and local != item["version"]:
             conflicts.append(conflict("version", key, f"版本不同：{row['id']}",
-                                      f"本機 {versions[row['id']]}，manifest {item['version']}。"))
+                                      f"本機 {local}，manifest {item['version']}。"))
     for event, command in dangling_hooks(home):
         conflicts.append(conflict("hook", f"hook:{event}:{command}", f"settings.json 的 {event} hook 指向不存在的腳本",
                                   command, default=KEEP))
@@ -578,12 +573,17 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
     # 2. Missing manifest items: automatic.
     wanted = cap.defaults(repo)
     missing = [wanted[(r["tool"], r["kind"], r["id"])] for r in rows
-               if r["origin"] == "project-default" and r["installed"] is False]
+               if r["origin"] == "project-default" and r["installed"] is False
+               and wanted[(r["tool"], r["kind"], r["id"])]["default_enabled"]]
     if only:
         unknown = sorted(set(only) - {i["id"] for i in wanted.values()})
         if unknown:
             failures.append(f"manifest 沒有這些 id：{', '.join(unknown)}")
         missing = [i for i in wanted.values() if i["id"] in only]
+    optional_missing = [wanted[(r["tool"], r["kind"], r["id"])] for r in rows
+                        if r["origin"] == "project-default" and r["installed"] is False
+                        and not wanted[(r["tool"], r["kind"], r["id"])]["default_enabled"]
+                        and r["id"] not in (only or [])]
     installed = []
     labels = {"installed": "PUT", "same": "SAME", "skipped": "SKIP", "planned": "PLAN"}
     for item in missing:
@@ -597,6 +597,9 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
         notes = [tilde(home, TAG_RE.sub("", line)) for line in lines]
         installed.append([outcome, name, "；".join(n for n in notes if n != name)])
     section(echo, "INSTALL", ["動作", "項目", "說明"], installed, "沒有缺項")
+
+    section(echo, "OPTIONAL", ["分組", "選配能力（--only 指定才補裝）"],
+            [[i.get("group", "core"), f"{i['tool']} {i['id']}"] for i in optional_missing], "沒有未安裝選配")
 
     # 3. Capability conflicts: decided on the post-install inventory.
     if missing and not plan:
@@ -622,7 +625,7 @@ def run(repo, home, *, plan=False, yes=False, no_pull=False, resolve=None, only=
         echo(line("!", "DONE", f"{len(unresolved)} 項衝突待決"))
     else:
         echo(line("v", "DONE", "完成"))
-    return {"pull": pulled, "env": env_rows, "deploy": result, "missing": [i["id"] for i in missing],
+    return {"pull": pulled, "env": env_rows, "deploy": result, "optional_missing": [i["id"] for i in optional_missing], "missing": [i["id"] for i in missing],
             "conflicts": conflicts, "unresolved": unresolved, "failures": failures}
 
 

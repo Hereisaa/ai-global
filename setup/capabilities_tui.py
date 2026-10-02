@@ -144,8 +144,8 @@ def create_app(rows, table_renderer, *, demo=False, input=None, output=None):
         wanted = state.pending.get(identity(row), row["enabled"])
         wanted_label = "開" if wanted is True else "關" if wanted is False else "未知"
         origin = "專案預設" if row["origin"] == "project-default" else "本機既有"
-        default = "未指定" if row["default_enabled"] is None else "開" if row["default_enabled"] else "關"
-        return (f"{origin} / 專案建議：{default}\n"
+        default = "未指定" if row["default_enabled"] is None else "是" if row["default_enabled"] else "否"
+        return (f"{origin} / 預設補裝：{default}\n"
                 f"目前 {current} → 預定 {wanted_label} / 待套用 {len(state.pending)} 項")
 
     def identifier_line():

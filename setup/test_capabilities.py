@@ -6,6 +6,8 @@ import io
 import json
 from pathlib import Path
 import tempfile
+import sys
+from types import SimpleNamespace
 import tomllib
 import unittest
 from unittest.mock import patch
@@ -54,7 +56,7 @@ class CapabilityTests(unittest.TestCase):
         lines = cap.capability_table(rows).splitlines()
         self.assertNotIn("\t", "\n".join(lines))
         offsets = []
-        for line, markers in ((lines[0], ["種類", "ID", "來源", "專案預設", "安裝", "本機開關"]),
+        for line, markers in ((lines[0], ["種類", "ID", "來源", "預設補裝", "安裝", "本機開關"]),
                               (lines[2], ["skill", "短名", "專案預設", "是", "是", "否"]),
                               (lines[3], ["plugin", "long-plugin-name@marketplace", "本機既有", "未知", "未知", "是"])):
             start = 0
@@ -75,6 +77,39 @@ class CapabilityTests(unittest.TestCase):
             result = cap.main(["list", "--repo", str(self.repo), "--home", str(self.home), "--json"])
         self.assertEqual(result, 0)
         self.assertIsInstance(json.loads(output.getvalue()), list)
+
+    def test_group_filter_is_read_only_and_rejects_unknown_manifest_group(self):
+        manifest = self.repo / "manifest/skills.json"
+        data = json.loads(manifest.read_text())
+        data["items"][1]["group"] = "frontend"
+        manifest.write_text(json.dumps(data))
+        before = sorted(self.root.rglob("*"))
+        with redirect_stdout(io.StringIO()) as output:
+            result = cap.main(["list", "--repo", str(self.repo), "--home", str(self.home),
+                               "--group", "frontend", "--json"])
+        self.assertEqual(result, 0)
+        self.assertEqual([r["id"] for r in json.loads(output.getvalue())], ["missing@market"])
+        self.assertEqual(before, sorted(self.root.rglob("*")))
+        data["items"][1]["group"] = "typo"
+        manifest.write_text(json.dumps(data))
+        with self.assertRaises(cap.ControlError):
+            self.rows()
+
+    def test_manage_refresh_retains_group_and_tool_filters(self):
+        path = self.repo / "manifest/skills.json"
+        data = json.loads(path.read_text())
+        data["items"][1]["group"] = "frontend"
+        path.write_text(json.dumps(data))
+        def manage(rows, table, refresh, toggle, demo=False):
+            self.assertEqual([r["id"] for r in rows], ["missing@market"])
+            self.assertEqual([r["id"] for r in refresh()], ["missing@market"])
+            return 0
+        fake = SimpleNamespace(manage=manage, demo_rows=lambda: [])
+        with patch.dict(sys.modules, {"capabilities_tui": fake}), \
+                patch.object(sys.stdin, "isatty", return_value=True), \
+                patch.object(sys.stdout, "isatty", return_value=True):
+            self.assertEqual(cap.main(["manage", "--repo", str(self.repo), "--home", str(self.home),
+                                       "--tool", "claude", "--group", "frontend"]), 0)
 
     def test_claude_skill_and_command_roundtrip_preserves_bytes(self):
         for kind, folder, filename in (("skill", "skills", "owned/SKILL.md"), ("command", "commands", "extra.md")):

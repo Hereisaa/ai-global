@@ -6,8 +6,7 @@ and the ai-global skill. Check links in those files and current governance/*.md,
 docs/reference/*.md and ai-global commands/*.md only; never recursively scan
 the repository.
 
-The two routers are parallel, not identical: they must share the same `##`
-section order (Claude may add its Cowork section) and each must carry its own
+The two routers are parallel, not identical: different `##` section orders are informational warnings, while each must carry its own
 tool's branch prefix. Copying the other tool's prefix is the classic mistake,
 so it is checked explicitly.
 """
@@ -160,9 +159,9 @@ class Checks:
             codex = sections(texts[ROUTERS[0]])
             claude = [s for s in sections(texts[ROUTERS[1]]) if s not in CLAUDE_ONLY_SECTIONS]
             if codex != claude:
-                self.report("FAIL", "兩個 router 節次不對齊（Cowork 為 Claude 專屬例外）")
+                self.report("WARN", "兩個 router 節次不同；按工具用途檢查即可，不以標題判定政策一致")
             else:
-                self.report("PASS", "兩個 router 節次對齊")
+                self.report("PASS", "兩個 router 節次對齊（僅結構，不證明政策語義一致）")
         for name, text in texts.items():
             if text is None:
                 continue
@@ -236,7 +235,7 @@ class Checks:
             if (today - checked).days > stale_days:
                 stale.append(f"{entry['id']}（{entry['last_checked']}）")
         if stale:
-            self.report("WARN", f"核對來源超過 {stale_days} 天未核對，建議執行 /ai-global evolve：{'、'.join(stale)}")
+            self.report("INFO", f"核對來源超過 {stale_days} 天未核對；工具升級或出現問題時按需 evolve：{'、'.join(stale)}")
         else:
             self.report("PASS", f"{len(entries)} 個核對來源皆在 {stale_days} 天內核對過")
 

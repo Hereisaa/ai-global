@@ -46,9 +46,9 @@ python setup\align.py
 第一次 `align` 會自己做這些，不用先準備：
 
 1. Python 太舊 → 停下來告訴你版本和怎麼裝。
-2. 缺選單套件 → 問「建立 .venv 並安裝？[Y/n]」，Enter 就建好、裝好、重新執行自己。`.venv` 只在這個資料夾，刪掉就還原。
+2. 缺選單套件 → 問「建立 .venv 並安裝？[Y/n]」，Enter 就建好、裝好、重新執行自己。`.venv` 只在這個資料夾，不用時依安全流程移到 trash。
 3. 部署 router、憲法、hooks、skill 到上表的位置。
-4. 補裝 manifest 列的第三方 plugins／skills。
+4. 只補裝基本能力；frontend、research、maintenance 等選配列出供按需安裝。
 5. 有衝突（本機多出來的、版本不同的、重複的）就開選單讓你逐項選；沒有就結束。
 
 > 電腦上本來就有自己的 `CLAUDE.md`／`AGENTS.md`？它會列成 `edited` 衝突讓你選「用 repo 的／把我的寫回 repo／先保留」，原檔一定先進 `~/.ai-trash/`。
@@ -57,7 +57,7 @@ python setup\align.py
 
 ## 平常怎麼用
 
-六個動作，**在 Claude Code 裡說 `/ai-global <動作>`，或自己在終端跑同名腳本**，名字一樣、做的事一樣：
+常用動作，**在 Claude Code 裡說 `/ai-global <動作>`，或自己在終端跑同名腳本**，名字一樣、做的事一樣：
 
 | 動作 | 做什麼 | Claude Code | 終端 |
 |---|---|---|---|
@@ -101,21 +101,20 @@ python setup/align.py [--plan | --yes] [--no-pull] [--only ID ...] [--resolve KE
 | `--plan` | 唯讀，只列會發生什麼（＝ check） |
 | `--yes` | 做自動項，衝突只列不問（給 Claude Code／CI） |
 | `--no-pull` | 不 `git pull`（離線或有未提交變更時） |
-| `--only ID` | 只補裝這一項，ID 用 manifest 的 `id`；可重複 |
+| `--only ID` | 明確補裝這一項（包含選配），ID 用 manifest 的 `id`；可重複 |
 | `--resolve KEY=ACTION` | 指定某個衝突怎麼處理，KEY 和可用 ACTION 都印在 CONFLICT 表；可重複 |
 | `--no-venv` | 缺選單套件時不問、不建 `.venv`，直接文字模式 |
 | `--json` | 最後多印 JSON 摘要 |
 
-輸出五張表：`ENV` hooks 執行環境（bash、能跑的 python 及版本，缺什麼印安裝指令）、`DRIFT` 漂移、`DEPLOY` 部署了什麼、`INSTALL` 補裝結果、`CONFLICT` 要你決定的。回傳碼 `0` 完成、`2` 還有衝突、`1` 有失敗。
+輸出包含選配清單：`OPTIONAL` 僅列未安裝的選配，不影響完成碼；其餘五張表：`ENV` hooks 執行環境（bash、能跑的 python 及版本，缺什麼印安裝指令）、`DRIFT` 漂移、`DEPLOY` 部署了什麼、`INSTALL` 補裝結果、`CONFLICT` 要你決定的。回傳碼 `0` 完成、`2` 還有衝突、`1` 有失敗。
 
-衝突七種，每種的預設都是最保守的：
+衝突六種；選單預設值是建議，只有明確選擇才套用。`--yes` 保留未選擇的衝突，不默認覆蓋或移除。本機能力開關不同不算衝突：
 
 | 類型 | 意思 | 可選 | 預設 |
 |---|---|---|---|
 | `edited` | 部署檔在 repo 外被改過 | overwrite 用 repo 的／writeback 寫回 repo／keep | overwrite |
 | `extra` | 本機有、manifest 沒有 | keep／disable／trash | keep |
 | `duplicate` | 獨立 skill 和 plugin 裡的同名 | trash／disable／keep | trash |
-| `switch` | 本機開關和 manifest 建議相反 | enable／disable／keep | keep |
 | `version` | 版本和 manifest 不同 | update／keep | update |
 | `hook` | settings.json 指到不存在的 hook 腳本，或掛了只建議在別的平台掛的 hook | keep／unwire | keep |
 | `hookmissing` | manifest 建議本平台掛的 hook，settings.json 沒掛 | keep／wire | keep |
@@ -133,7 +132,7 @@ python setup/deploy.py [install | check]
 ### `capabilities.py`
 
 ```
-python setup/capabilities.py list    [--tool claude|codex] [--kind skill|plugin|command] [--id ID] [--json]
+python setup/capabilities.py list    [--tool claude|codex] [--kind skill|plugin|command] [--group core|frontend|typescript|research|maintenance|local] [--id ID] [--json]
 python setup/capabilities.py manage  [--demo]
 python setup/capabilities.py enable  --tool claude|codex --kind skill|plugin|command --id ID
 python setup/capabilities.py disable --tool claude|codex --kind skill|plugin|command --id ID
@@ -141,7 +140,7 @@ python setup/capabilities.py disable --tool claude|codex --kind skill|plugin|com
 
 **第一個字（動作）一定要給**：
 
-- `list`：表格列出每項能力的工具、種類、ID、來源、有沒有裝、開了沒。後面的 `--tool`／`--kind`／`--id` 是篩選，可不給。
+- `list`：表格列出每項能力的工具、種類、ID、來源、有沒有裝、開了沒。後面的 `--tool`／`--kind`／`--group`／`--id` 是篩選，可不給。
 - `manage`：方向鍵＋空白鍵勾選、Enter 套用、Esc 放棄的選單。要用 `.venv` 的 Python 跑：`.venv/bin/python setup/capabilities.py manage`（Windows `.venv\Scripts\python`）。`--demo` 用假資料練習。
 - `enable`／`disable`：開或關一項，`--tool`、`--kind`、`--id` **三個都要給**，值照 `list` 印的抄。
 
@@ -158,7 +157,7 @@ python setup/capabilities.py disable --tool claude --kind plugin --id ui-ux-pro-
 python setup/govcheck.py [--local]
 ```
 
-檢查兩個 router 節次對齊、沒互抄對方的前綴、路由與連結有效、manifest 格式、`sources.json` 有沒有超過 45 天沒核對。`--local` 多對帳本機部署副本。CI 在 push／PR 時於三個 OS 跑。
+檢查工具前綴、路由、連結與 manifest 格式。入口結構差異只提醒；來源超過 45 天未核對只提供資訊，工具升級或出現問題再按需 evolve。`--local` 多對帳本機部署副本。CI 在 push／PR 時於三個 OS 跑。
 
 ### 模型行為評測（eval）
 
@@ -178,7 +177,7 @@ python -m unittest discover -s setup -p 'test_*.py'
 
 **用狀態檔抓漂移。** `~/.ai-global/.deploy-state.json` 記 clone 在哪、每個檔部署時的 hash、部署了哪些項目。`BEHIND`／`EDITED` 靠 hash 判斷，所以沒 commit 的改動也判得準。
 
-**兩個 router 平行但不逐字相同。** 節次刻意對齊，只在工具能力不同處分歧（分支前綴 `claude/` vs `codex/`、`/ai-global` 只有 Claude Code 能跑）。`govcheck` 把「節次不對齊」和「照抄對面前綴」直接判 FAIL。
+**兩個 router 平行但不逐字相同。** 入口結構可依工具需要調整，例如分支前綴 `claude/` vs `codex/`、`/ai-global` 只有 Claude Code 能跑。`govcheck` 提醒結構差異；錯誤的工具前綴與失效路由仍判 FAIL。
 
 ```
 你在 clone 改檔 ──deploy──▶ ~/.ai-global/governance/、~/.claude/…、~/.codex/AGENTS.md
@@ -193,6 +192,8 @@ python -m unittest discover -s setup -p 'test_*.py'
 |---|---|
 | Claude | `kb-retriever`、`web-design-guidelines`、`frontend-design`、`ui-ux-pro-max`、`gsap-skills`、`typescript-lsp`、`context7`、`hookify`、`claude-md-management` |
 | Codex | `kb-retriever`、`web-design-guidelines`、`frontend-design`、`ui-ux-pro-max`、`gsap-skills`、`context7` |
+
+基本預設只有維護入口與 context7。其餘按 frontend、typescript、research、maintenance 分組選配；`default_enabled` 表示新環境是否自動補裝，不覆蓋已安裝能力的本機開關。一般 `align` 不裝選配，可用 `--only ID` 指定。詳見[能力選配與工作環境指南](docs/reference/capability-guide.md)。
 
 正本是 `manifest/skills.json`。`typescript-lsp` 另需 `npm install -g typescript-language-server typescript`。
 

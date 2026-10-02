@@ -88,10 +88,10 @@ class GovernanceTests(unittest.TestCase):
         self.assertNotIn("WARN", self.output())
         self.assertIn("節次對齊", self.output())
 
-    def test_stale_source_warns_with_evolve_hint(self):
+    def test_stale_source_is_informational(self):
         self.files[self.sources_path] = self.sources_json("2026-07-01")
         self.assertEqual(self.run_repository(), 0)
-        self.assertIn("WARN 核對來源超過 45 天未核對，建議執行 /ai-global evolve：openai-guide（2026-07-01）", self.output())
+        self.assertIn("INFO 核對來源超過 45 天未核對；工具升級或出現問題時按需 evolve：openai-guide（2026-07-01）", self.output())
 
     def test_source_within_window_passes(self):
         self.files[self.sources_path] = self.sources_json("2026-08-01")
@@ -107,10 +107,10 @@ class GovernanceTests(unittest.TestCase):
         del self.files[self.sources_path]
         self.assertEqual(self.run_repository(), 1)
 
-    def test_section_drift_fails(self):
+    def test_section_drift_is_advisory(self):
         self.files[self.root / CODEX] += "## 只有一邊有的節\n內容\n"
-        self.assertEqual(self.run_repository(), 1)
-        self.assertIn("節次不對齊", self.output())
+        self.assertEqual(self.run_repository(), 0)
+        self.assertIn("WARN 兩個 router 節次不同", self.output())
 
     def test_claude_only_cowork_section_is_allowed(self):
         self.files[self.root / CLAUDE] = router("CLAUDE", checker.TOOL_PREFIX[CLAUDE], claude_only=False)

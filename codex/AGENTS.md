@@ -3,7 +3,7 @@
 ## 本檔的身分與改法
 - 本檔是部署副本；正本 clone 路徑取自 `~/.ai-global/.deploy-state.json` 的 `source_repo`，下稱 `<repo>`。共用政策以 `~/.ai-global/governance/` 為準。
 - 不直接編輯 `~/.codex/AGENTS.md`、`~/.claude/CLAUDE.md` 或 `~/.ai-global/`；改正本、部署、驗證、commit。push 另需具體授權。詳見 `40-maintenance.md`。
-- 兩工具共用政策、入口節次對齊；工具差異以當次可用能力為準。變更紀錄在 `<repo>/docs/CHANGELOG.md`。
+- 兩工具共用政策；入口結構可依工具用途不同，工具差異以當次可用能力為準。變更紀錄在 `<repo>/docs/CHANGELOG.md`。
 
 ## 環境（以實際偵測到的 OS 為準，不要假設）
 - 路徑以家目錄相對形式表達，不寫死機器路徑；先確認 OS、shell、工作樹並保留未提交工作。
