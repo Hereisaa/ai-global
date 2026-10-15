@@ -24,7 +24,7 @@
 ## 變更紀錄
 - 2026-07-03 建檔（Fable 5）
 - 2026-07-05 新增 60-project-bootstrap.md 並掛上兩側路由（Fable 5）
-- 2026-07-05 新增 USER-GUIDE.md（使用者手冊）；環境強制層：digrit CI 檔就緒、Stop hook 腳本就緒待掛載（Fable 5）
+- 2026-07-05 新增 USER-GUIDE.md（使用者手冊）；環境強制層：gojiCI 檔就緒、Stop hook 腳本就緒待掛載（Fable 5）
 - 2026-07-08 新增 70-behavior-contract.md（行為契約，Fable 5 蒸餾）與 REPORT-fable5-vs-opus.md（差異分析報告），兩側路由同步掛載（Fable 5）
 - 2026-08-16 新增 80-engineering.md；目錄精簡：00-diagnosis、90-letter、REPORT-fable5-vs-opus 歸檔至 `backups/archived-*`，相關引用已修（Fable 5，應使用者要求）
 - 2026-09-06 精簡為職責索引；新增執行環境參考，明定備份只供歷史查考。
