@@ -100,6 +100,28 @@
       ],
       "last_checked": "2026-09-14",
       "last_seen": "063bee9；react-best-practices 未納入（候選）"
+    },
+    {
+      "id": "claude-models-overview",
+      "url": "https://platform.claude.com/docs/en/about-claude/models/overview",
+      "watch": "Claude 模型家族與定位（新家族、退役、各家族相對能力與成本）；新模型推出時重新檢查角色分工",
+      "affects": [
+        "claude/agents/",
+        "governance/10-dispatch.md"
+      ],
+      "last_checked": "2026-10-29",
+      "last_seen": "基準取自執行環境資訊，未讀官方頁：Fable 5.1、Opus 5.5、Sonnet 5.5、Haiku 5.5；角色分工 deep-reasoner=opus/medium、coder 與 code-reviewer=opus/low、designer 與 design-reviewer=sonnet/high、雜項=sonnet、主對話=fable/medium"
+    },
+    {
+      "id": "claude-code-subagents-model-config",
+      "url": "https://code.claude.com/docs/en/sub-agents.md",
+      "watch": "subagent 檔頭欄位（model、effort）、模型解析順序、CLAUDE_CODE_SUBAGENT_MODEL、別名清單與 effort 可用等級（另見 model-config.md）",
+      "affects": [
+        "claude/agents/",
+        "governance/10-dispatch.md"
+      ],
+      "last_checked": "2026-10-29",
+      "last_seen": "別名 fable/opus/sonnet/haiku 指向家族最新版；模型解析＝派工 model 參數 > 檔頭 model > CLAUDE_CODE_SUBAGENT_MODEL > 主對話；effort 等級依模型而定；general-purpose 能否以同名檔覆蓋未記載"
     }
   ]
 }
