@@ -40,3 +40,4 @@
 - 2026-09-15 skill 與腳本命名收斂：`check_governance.py` 改名 `govcheck.py`；`/ai-global` 收成 `check`（＝`align --plan`）／`align`（吸收 `sync`，`--only` 取代 `install`）／`deploy`／`govcheck`／`capabilities`／`evolve`；`install-cleanup-*` 退役（Fable 5.1，使用者授權）
 - 2026-09-15 變更紀錄搬到 `docs/CHANGELOG.md`；與 CLAUDE.md 同步精簡回 60 行預算內，hook 只在 Claude Code 生效、Codex 側註明沒有（Fable 5.1，使用者授權）
 - 2026-11-03 兩個入口「工程開發與輸出格式」加一條註解原則（Why 與踩坑警告、絕不寫日期），完整定義在 80（Fable 5.1，使用者授權）
+- 2026-11-03 註解原則摘要補「紀錄只寫實作內容」（Fable 5.1，使用者授權）
